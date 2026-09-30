@@ -75,7 +75,9 @@ DEFAULT_CONFIG = {
         "host": "smtp.163.com",
         "port": 465,
         "ssl": True,
-        "user": "wopanpanha@163.com",
+        # 发件邮箱：本地写在 alert_config.json 里；云端用密钥 MACD_SMTP_USER 注入
+        # （源码里不写死任何真实邮箱，方便把仓库设为公开）
+        "user": "",
         "password": "",
         "fromName": "MACD 监控",
     },
@@ -158,6 +160,14 @@ def load_config() -> dict:
     env_user = (os.environ.get("MACD_SMTP_USER") or "").strip()
     if env_user:
         out["smtp"]["user"] = env_user
+    # 云端部署用：收件人同样可由环境变量注入（GitHub Secrets），仓库里不出现任何邮箱地址
+    env_to = (os.environ.get("MACD_MAIL_TO") or "").strip()
+    if env_to:
+        addrs = [a.strip() for a in env_to.replace(";", ",").replace(" ", ",")
+                 .replace("\n", ",").split(",") if a.strip()]
+        if addrs:
+            for t in out["tasks"]:
+                t["to"] = list(addrs)
     return out
 
 
@@ -351,8 +361,14 @@ def test_recipients(cfg: dict):
 
 
 def send_mail(smtp: dict, to, subject: str, text_body: str, html_body: str) -> None:
+    if not smtp.get("user"):
+        raise RuntimeError(
+            "发件邮箱为空：请在 %s 的 smtp.user 里填写，"
+            "或设置环境变量（GitHub 密钥）MACD_SMTP_USER" % CONFIG_PATH.name)
     if not smtp.get("password"):
-        raise RuntimeError("SMTP 授权码为空：请编辑 %s，把 password 填成邮箱授权码" % CONFIG_PATH.name)
+        raise RuntimeError(
+            "SMTP 授权码为空：请在 %s 的 smtp.password 里填写，"
+            "或设置环境变量（GitHub 密钥）MACD_SMTP_PASSWORD" % CONFIG_PATH.name)
     to = [a for a in (to or []) if a]
     if not to:
         raise RuntimeError("收件人为空")
@@ -463,8 +479,13 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
             collected = []
 
         sent_ok = True
-        if collected:
-            to = t.get("to") or []
+        to = [a for a in (t.get("to") or []) if a]
+        if collected and not to:
+            sent_ok = False
+            problems.append("%s 未配置收件人" % name)
+            log.error("任务[%s] 没有收件人：请在 GitHub Secrets 里添加 MACD_MAIL_TO，"
+                      "或在 alert_config.json 的 to 里填收件邮箱；本轮不发信", name)
+        if collected and to:
             title = "【MACD 信号】%s（%d 个）" % (
                 "、".join(sorted({e["symbol"].replace("USDT", "") for e in collected})), len(collected))
             try:
@@ -478,12 +499,12 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
                 problems.append("%s 发信失败：%s" % (name, exc))
                 log.error("任务[%s] 发信失败：%s", name, exc)
 
-        if first_run and cfg.get("notifyOnStart") and sent_ok:
+        if first_run and cfg.get("notifyOnStart") and sent_ok and to:
             body = "监控已启动。\n\n任务：%s\n币种：%s\n周期：%s\n收件人：%s\n启动时间：%s\n" % (
                 name, ", ".join(t.get("symbols") or []), t["interval"],
-                ", ".join(t.get("to") or []), now_bj())
+                ", ".join(to), now_bj())
             try:
-                send_mail(cfg["smtp"], t.get("to") or [],
+                send_mail(cfg["smtp"], to,
                           "【MACD 监控】已启动（%s %s）" % ("/".join(t.get("symbols") or []), t["interval"]),
                           body, "<pre style='font:13px/1.6 Consolas,monospace'>%s</pre>" % body)
                 mails += 1
