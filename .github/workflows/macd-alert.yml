@@ -1,0 +1,38 @@
+name: MACD 邮件提醒
+
+on:
+  schedule:
+    # 每 30 分钟检查一次（时间用 UTC，与北京时间无关，无需换算）
+    # 想更频繁可改成 "*/15 * * * *"（注意：私有仓库每月免费额度 2000 分钟，每 5 分钟跑会超）
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: macd-alert
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 取出仓库
+        uses: actions/checkout@v4
+
+      - name: 扫描行情并发信
+        env:
+          MACD_SMTP_PASSWORD: ${{ secrets.MACD_SMTP_PASSWORD }}
+        run: python3 macd_alert.py -v
+
+      - name: 保存进度（游标）
+        run: |
+          if [ -n "$(git status --porcelain alert_state.json)" ]; then
+            git config user.name "macd-alert-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add alert_state.json
+            git commit -m "更新游标 [skip ci]"
+            git push
+          fi
