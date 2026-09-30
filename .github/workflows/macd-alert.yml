@@ -2,10 +2,15 @@ name: MACD 邮件提醒
 
 on:
   schedule:
-    # 每 30 分钟检查一次（时间用 UTC，与北京时间无关，无需换算）
-    # 想更频繁可改成 "*/15 * * * *"（注意：私有仓库每月免费额度 2000 分钟，每 5 分钟跑会超）
-    - cron: "*/30 * * * *"
+    # 每 5 分钟检查一次（5 分钟是 GitHub 定时任务支持的最小间隔）
+    # 下面的时间是 UTC，与北京时区无关，不需要换算
+    - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      test_mail:
+        description: "只发一封测试邮件（验证密钥与收发通道）"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -22,9 +27,19 @@ jobs:
       - name: 取出仓库
         uses: actions/checkout@v4
 
+      - name: 发送测试邮件（手动勾选时执行）
+        if: ${{ inputs.test_mail }}
+        env:
+          MACD_SMTP_USER: ${{ secrets.MACD_SMTP_USER }}
+          MACD_SMTP_PASSWORD: ${{ secrets.MACD_SMTP_PASSWORD }}
+          MACD_MAIL_TO: ${{ secrets.MACD_MAIL_TO }}
+        run: python3 macd_alert.py --test
+
       - name: 扫描行情并发信
         env:
+          MACD_SMTP_USER: ${{ secrets.MACD_SMTP_USER }}
           MACD_SMTP_PASSWORD: ${{ secrets.MACD_SMTP_PASSWORD }}
+          MACD_MAIL_TO: ${{ secrets.MACD_MAIL_TO }}
         run: python3 macd_alert.py -v
 
       - name: 保存进度（游标）
@@ -34,5 +49,5 @@ jobs:
             git config user.email "actions@users.noreply.github.com"
             git add alert_state.json
             git commit -m "更新游标 [skip ci]"
-            git push
+            git push || (git pull --rebase && git push)
           fi
