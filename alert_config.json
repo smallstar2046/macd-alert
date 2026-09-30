@@ -1,0 +1,80 @@
+{
+  "smtp": {
+    "host": "smtp.163.com",
+    "port": 465,
+    "ssl": true,
+    "user": "wopanpanha@163.com",
+    "password": "",
+    "fromName": "MACD 监控"
+  },
+  "pollMinutes": 10,
+  "notifyOnStart": true,
+  "tasks": [
+    {
+      "name": "BTC-4H",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "interval": "4h",
+      "to": [
+        "wopanpanha@qq.com"
+      ],
+      "alerts": {
+        "golden": true,
+        "death": true,
+        "goldenBelowZero": false,
+        "deathAboveZero": false,
+        "histFlip": true,
+        "zeroCross": false,
+        "priceAbove": 0,
+        "priceBelow": 0
+      }
+    },
+    {
+      "name": "BTC-15M",
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "interval": "15m",
+      "to": [
+        "wopanpanha@163.com"
+      ],
+      "alerts": {
+        "golden": true,
+        "death": true,
+        "goldenBelowZero": false,
+        "deathAboveZero": false,
+        "histFlip": true,
+        "zeroCross": false,
+        "priceAbove": 0,
+        "priceBelow": 0
+      }
+    },
+    {
+      "name": "ALT-4H-零轴下金叉",
+      "symbols": [
+        "AAVEUSDT",
+        "UNIUSDT",
+        "ARBUSDT",
+        "NEARUSDT",
+        "ENAUSDT",
+        "EIGENUSDT",
+        "ONDOUSDT"
+      ],
+      "interval": "4h",
+      "to": [
+        "wopanpanha@163.com"
+      ],
+      "alerts": {
+        "golden": false,
+        "death": false,
+        "goldenBelowZero": true,
+        "deathAboveZero": false,
+        "histFlip": false,
+        "zeroCross": false,
+        "priceAbove": 0,
+        "priceBelow": 0
+      }
+    }
+  ]
+}
