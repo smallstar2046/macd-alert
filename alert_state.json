@@ -2,7 +2,7 @@
   "BTC-4H": {
     "since": 1791215999999,
     "since_time": "2026-10-05 23:59",
-    "last_run": "2026-10-06 01:41:36",
+    "last_run": "2026-10-06 01:59:34",
     "last_events": 0,
     "last_status": [
       {
@@ -16,9 +16,9 @@
         "hist": 78.45700642,
         "above_zero": true,
         "above_dea": true,
-        "price": 85337.49,
-        "live_dif": 358.83841026,
-        "live_dea": 366.51935727
+        "price": 85438.01,
+        "live_dif": 366.85709972,
+        "live_dea": 368.12309516
       }
     ],
     "price": {
@@ -27,25 +27,25 @@
     "failed": []
   },
   "BTC-15M": {
-    "since": 1791221399999,
-    "since_time": "2026-10-06 01:29",
-    "last_run": "2026-10-06 01:41:36",
+    "since": 1791222299999,
+    "since_time": "2026-10-06 01:44",
+    "last_run": "2026-10-06 01:59:34",
     "last_events": 0,
     "last_status": [
       {
         "symbol": "BTCUSDT",
         "interval": "15m",
         "source": "binance.vision",
-        "bar_time": "2026-10-06 01:29",
-        "bar_close": 85366.01,
-        "dif": -226.47790179,
-        "dea": -186.8169074,
-        "hist": -79.32198877,
+        "bar_time": "2026-10-06 01:44",
+        "bar_close": 85328.53,
+        "dif": -218.72257377,
+        "dea": -193.19804068,
+        "hist": -51.04906619,
         "above_zero": false,
         "above_dea": false,
-        "price": 85337.48,
-        "live_dif": -218.00861366,
-        "live_dea": -193.05524866
+        "price": 85438.01,
+        "live_dif": -201.42044985,
+        "live_dea": -194.84252251
       }
     ],
     "price": {
@@ -56,7 +56,7 @@
   "ALT-4H-零轴下金叉": {
     "since": 1791215999999,
     "since_time": "2026-10-05 23:59",
-    "last_run": "2026-10-06 01:41:42",
+    "last_run": "2026-10-06 01:59:41",
     "last_events": 0,
     "last_status": [
       {
@@ -70,9 +70,9 @@
         "hist": -1.48761568,
         "above_zero": true,
         "above_dea": false,
-        "price": 183.36,
-        "live_dif": 3.28913386,
-        "live_dea": 3.89273205
+        "price": 182.9,
+        "live_dif": 3.2524387,
+        "live_dea": 3.88539302
       },
       {
         "symbol": "UNIUSDT",
@@ -85,9 +85,9 @@
         "hist": -0.00947671,
         "above_zero": false,
         "above_dea": false,
-        "price": 8.956,
-        "live_dif": -0.01136753,
-        "live_dea": -0.00295681
+        "price": 8.967,
+        "live_dif": -0.01049003,
+        "live_dea": -0.00278131
       },
       {
         "symbol": "ARBUSDT",
@@ -100,9 +100,9 @@
         "hist": 0.001712,
         "above_zero": true,
         "above_dea": true,
-        "price": 0.2056,
-        "live_dif": 0.00039837,
-        "live_dea": -0.00041796
+        "price": 0.2059,
+        "live_dif": 0.0004223,
+        "live_dea": -0.00041318
       },
       {
         "symbol": "NEARUSDT",
@@ -115,9 +115,9 @@
         "hist": 0.07415845,
         "above_zero": true,
         "above_dea": true,
-        "price": 5.012,
-        "live_dif": 0.03051941,
-        "live_dea": -0.00296817
+        "price": 5.079,
+        "live_dif": 0.03586414,
+        "live_dea": -0.00189922
       },
       {
         "symbol": "ENAUSDT",
@@ -130,9 +130,9 @@
         "hist": 0.00462347,
         "above_zero": true,
         "above_dea": true,
-        "price": 0.2483,
-        "live_dif": 0.0003813,
-        "live_dea": -0.0017036
+        "price": 0.2502,
+        "live_dif": 0.00053287,
+        "live_dea": -0.00167329
       },
       {
         "symbol": "EIGENUSDT",
@@ -160,9 +160,9 @@
         "hist": 0.00225594,
         "above_zero": false,
         "above_dea": true,
-        "price": 0.488,
-        "live_dif": -0.00167742,
-        "live_dea": -0.00205906
+        "price": 0.4889,
+        "live_dif": -0.00160562,
+        "live_dea": -0.0020447
       }
     ],
     "price": {
