@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """MACD 邮件提醒 —— 本地全自动版（不依赖 WorkBuddy）
 
-功能：按 alert_config.json 的配置抓取币安现货 K 线，逐根扫描 MACD 事件
+功能：按 alert_config.json 的配置抓取现货或合约 K 线（task 里可写 "market": "futures"），
+逐根扫描 MACD 事件
 （金叉 / 死叉 / 零轴下方金叉 / 柱体变色 / 零轴穿越 / 价格突破），命中即用
 SMTP 发邮件；用 alert_state.json 记录「上次已处理 K 线时间」，保证不重不漏。
 
@@ -38,10 +39,10 @@ CONFIG_PATH = BASE / "alert_config.json"
 STATE_PATH = BASE / "alert_state.json"
 LOG_PATH = BASE / "macd_alert.log"
 
-# 上游列表：(显示名, 解析器, 地址)。按顺序尝试，任一成功即返回。
+# 现货上游：(显示名, 解析器, 地址)。按顺序尝试，任一成功即返回。
 # 币安对部分地区 IP 会返回 451，故加入 MEXC（格式与币安一致）与 Gate 作为后备，
 # 这样云端（GitHub Actions / 海外服务器）与国内网络都能取到行情。
-UPSTREAMS = [
+SPOT_UPSTREAMS = [
     ("binance.vision", "binance", "https://data-api.binance.vision"),
     ("binance.gcp", "binance", "https://api-gcp.binance.com"),
     ("binance.api1", "binance", "https://api1.binance.com"),
@@ -49,6 +50,22 @@ UPSTREAMS = [
     ("mexc", "binance", "https://api.mexc.com"),
     ("gate", "gate", "https://api.gateio.ws"),
 ]
+
+# 合约（U 本位永续）上游。Gate 合约放首位：实测国内网络与云端机房均可访问；
+# 币安合约接口（fapi）在海外机房常返回 451，故作为备用。两者 K 线含义一致（合约价）。
+FUTURES_UPSTREAMS = [
+    ("gate.futures", "gate_futures", "https://api.gateio.ws"),
+    ("binance.fapi", "binance_futures", "https://fapi.binance.com"),
+    ("binance.fapi1", "binance_futures", "https://fapi1.binance.com"),
+    ("binance.fapi2", "binance_futures", "https://fapi2.binance.com"),
+]
+
+# 合约代码与现货代码不一致的品种（合约 RAYSOL = 现货 RAY，Raydium）
+CONTRACT_ALIAS = {"RAYSOL": "RAY"}
+SPOT_EQUIV = {"RAYSOLUSDT": "RAYUSDT"}
+
+# 兼容旧脚本引用（_verify_sources.py 等）
+UPSTREAMS = SPOT_UPSTREAMS
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) macd-alert/1.0"}
 KLINES_LIMIT = 400
 FETCH_TIMEOUT = 20
@@ -172,13 +189,15 @@ def load_config() -> dict:
 
 
 # ---------------------------------------------------------------- 行情与指标
-def _klines_binance_style(base: str, symbol: str, interval: str):
-    """币安 / MEXC —— 两者 klines 返回格式完全一致。
+def _klines_binance_style(base: str, symbol: str, interval: str,
+                          path: str = "/api/v3/klines"):
+    """币安（现货/合约）/ MEXC —— 三者 klines 返回格式完全一致。
 
     每根：[openTime, open, high, low, close, volume, closeTime, ...]
+    现货用 /api/v3/klines，合约用 /fapi/v1/klines。
     """
-    url = "%s/api/v3/klines?symbol=%s&interval=%s&limit=%d" % (
-        base, symbol, interval, KLINES_LIMIT)
+    url = "%s%s?symbol=%s&interval=%s&limit=%d" % (
+        base, path, symbol, interval, KLINES_LIMIT)
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
         raw = json.loads(resp.read().decode("utf-8"))
@@ -216,18 +235,71 @@ def _klines_gate(base: str, symbol: str, interval: str):
     return out
 
 
-_FETCHERS = {"binance": _klines_binance_style, "gate": _klines_gate}
+def _klines_gate_futures(base: str, symbol: str, interval: str):
+    """Gate 合约（U 本位永续）。
+
+    每根：{"t": 起始秒, "o","h","l","c","v","sum"}，按时间升序。
+    合约名 = 基础币 + "_USDT"，RAYSOL 需映射为 RAY。
+    """
+    if not symbol.endswith("USDT"):
+        raise RuntimeError("Gate 合约上游仅支持 USDT 交易对")
+    step = BAR_MS.get(interval)
+    if not step:
+        raise RuntimeError("Gate 合约上游不支持周期 %s" % interval)
+    base_asset = symbol[:-4]
+    base_asset = CONTRACT_ALIAS.get(base_asset, base_asset)
+    contract = base_asset + "_USDT"
+    url = "%s/api/v4/futures/usdt/candlesticks?contract=%s&interval=%s&limit=%d" % (
+        base, contract, interval, KLINES_LIMIT)
+    req = urllib.request.Request(url, headers=UA)
+    with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+        raw = json.loads(resp.read().decode("utf-8"))
+    if not isinstance(raw, list) or len(raw) < 60:
+        raise RuntimeError("返回数据异常（%s 条）" % (len(raw) if isinstance(raw, list) else "非列表"))
+    out = []
+    for r in raw:
+        t = int(float(r["t"])) * 1000
+        out.append({"openTime": t, "closeTime": t + step - 1,
+                    "open": float(r["o"]), "high": float(r["h"]),
+                    "low": float(r["l"]), "close": float(r["c"])})
+    return out
 
 
-def fetch_klines(symbol: str, interval: str):
-    """多上游容错抓取，返回 (source_name, candles)；全部失败抛 RuntimeError。"""
+def _klines_binance_futures(base: str, symbol: str, interval: str):
+    return _klines_binance_style(base, symbol, interval, path="/fapi/v1/klines")
+
+
+_FETCHERS = {
+    "binance": _klines_binance_style,
+    "gate": _klines_gate,
+    "gate_futures": _klines_gate_futures,
+    "binance_futures": _klines_binance_futures,
+}
+
+
+def fetch_klines(symbol: str, interval: str, market: str = "spot"):
+    """多上游容错抓取，返回 (source_name, candles)；全部失败抛 RuntimeError。
+
+    market="futures" 时先走合约上游；合约源全部失败后，用「现货等价物」
+    （如合约 RAYSOLUSDT -> 现货 RAYUSDT）兜底，保证信号不会因单一渠道挂掉而中断。
+    """
     errs = []
-    for name, kind, base in UPSTREAMS:
-        try:
-            candles = _FETCHERS[kind](base, symbol, interval)
-            return name, candles
-        except Exception as exc:  # noqa: BLE001
-            errs.append("%s -> %s" % (name, exc))
+    chains = []
+    if (market or "spot").lower() == "futures":
+        chains.append(("futures", FUTURES_UPSTREAMS, symbol))
+        chains.append(("spot", SPOT_UPSTREAMS, SPOT_EQUIV.get(symbol, symbol)))
+    else:
+        chains.append(("spot", SPOT_UPSTREAMS, symbol))
+
+    for tag, ups, sym in chains:
+        for name, kind, base in ups:
+            try:
+                candles = _FETCHERS[kind](base, sym, interval)
+                if tag == "spot" and market and market.lower() == "futures":
+                    name = "%s（现货替代 %s）" % (name, sym)
+                return name, candles
+            except Exception as exc:  # noqa: BLE001
+                errs.append("%s -> %s" % (name, exc))
     raise RuntimeError("%s %s 抓取失败：%s" % (symbol, interval, "；".join(errs)))
 
 
@@ -260,13 +332,13 @@ def cross_dir(a, b):
 
 # ---------------------------------------------------------------- 事件扫描
 def scan_symbol(symbol: str, interval: str, since_ms: int, alerts: dict,
-                price_state: dict):
-    """逐根扫描区间内所有命中的事件。
+                price_state: dict, market: str = "spot"):
+    """逐根扫描区间内所有命中的事件。market：spot（默认）/ futures。
 
     返回 (events, status, closed_ms, price_state_new)
     events 内每条含 type/label/time/time_ms/close/dif/dea/hist/gap
     """
-    host, candles = fetch_klines(symbol, interval)
+    host, candles = fetch_klines(symbol, interval, market)
     closes = [c["close"] for c in candles]
     dif, dea, hist = macd(closes)
     x = cross_dir(dif, dea)
@@ -337,7 +409,7 @@ def scan_symbol(symbol: str, interval: str, since_ms: int, alerts: dict,
         st["below"] = now
 
     status = {
-        "symbol": symbol, "interval": interval, "source": host,
+        "symbol": symbol, "interval": interval, "market": market, "source": host,
         "bar_time": bj(candles[i]["closeTime"]),
         "bar_close": closes[i],
         "dif": round(dif[i], 8), "dea": round(dea[i], 8), "hist": round(hist[i], 8),
@@ -390,6 +462,58 @@ def send_mail(smtp: dict, to, subject: str, text_body: str, html_body: str) -> N
             sv.sendmail(smtp["user"], to, msg.as_string())
 
 
+# ---------------------------------------------------------------- 邮件操作提示
+# 信号邮件里附带的一句操作提示，按「周期 + 金叉/死叉」匹配后追加。
+# 想改措辞直接改下面的文字；不想要某条就把它删掉，或把值改成 ""。
+HINTS = {
+    ("4h", "golden"): "结合日K看看是不是要加仓了",
+    ("4h", "death"): "可以考虑 合约换现货",
+    ("1d", "golden"): "现在现货可以换一下合约了，结合周K考虑考虑",
+    ("1d", "death"): "拿现货还是出货好好考虑",
+}
+GOLDEN_TYPES = ("golden", "goldenBelowZero")   # 金叉类信号
+DEATH_TYPES = ("death", "deathAboveZero")      # 死叉类信号
+
+
+def event_hints(events) -> list:
+    """按 (周期, 金叉/死叉) 生成操作提示，同一条只出现一次，顺序与事件一致。"""
+    out = []
+    for e in events:
+        t = e.get("type") or ""
+        if t in GOLDEN_TYPES:
+            kind = "golden"
+        elif t in DEATH_TYPES:
+            kind = "death"
+        else:
+            continue
+        msg = HINTS.get(((e.get("interval") or "").lower(), kind))
+        if msg and msg not in out:
+            out.append(msg)
+    return out
+
+
+def hints_html(events) -> str:
+    lines = event_hints(events)
+    if not lines:
+        return ""
+    body = "<br>".join(
+        "<span style=\"font-size:19px;font-weight:700;color:#C81E1E\">"
+        "· %s</span>" % h for h in lines)
+    return ("<div style=\"background:#FFF3D6;border-left:6px solid #FF8A00;"
+            "padding:13px 16px;margin:0 0 14px\">"
+            "<div style=\"font-size:22px;font-weight:800;color:#E04A00;"
+            "letter-spacing:1px;margin:0 0 6px\">⚡ 操作提示</div>"
+            "<div style=\"font-size:19px;line-height:2.0;color:#C81E1E\">"
+            "%s</div></div>") % body
+
+
+def hints_text(events) -> list:
+    lines = event_hints(events)
+    if not lines:
+        return []
+    return ["【操作提示】"] + ["· " + h for h in lines] + [""]
+
+
 def event_table(events, title: str) -> str:
     rows = []
     for e in events:
@@ -406,7 +530,7 @@ def event_table(events, title: str) -> str:
             ))
     return """<html><body style="font-family:system-ui,'Microsoft YaHei',sans-serif;color:#2C2C2A">
 <h3 style="margin:0 0 10px">%s</h3>
-<table cellspacing="0" cellpadding="7" style="border-collapse:collapse;font-size:13px">
+%s<table cellspacing="0" cellpadding="7" style="border-collapse:collapse;font-size:13px">
 <thead><tr style="background:#f7f6f3;color:#8a8a85">
 <th align="left">币种</th><th align="left">周期</th><th align="left">信号</th>
 <th align="left">确认时间(北京)</th><th align="right">收盘价</th>
@@ -415,11 +539,12 @@ def event_table(events, title: str) -> str:
 <p style="font-size:12px;color:#8a8a85;line-height:1.7;margin-top:12px">
 .up{color:#D8453F}.down{color:#12946A}<br>
 信号按 K 线收盘确认，未收盘 K 线不计入。本邮件由本地程序自动发送，仅供参考，不构成投资建议。
-</p></body></html>""" % (title, "".join(rows))
+</p></body></html>""" % (title, hints_html(events), "".join(rows))
 
 
 def event_text(events, title: str) -> str:
     lines = [title, ""]
+    lines += hints_text(events)
     for e in events:
         lines.append("[%s] %s %s  %s  收盘 %s  DIF %+.6f  柱 %+.6f" % (
             e["symbol"], e["interval"].upper(), e["label"], e["time"],
@@ -446,12 +571,13 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
         alerts = dict(DEFAULT_ALERTS)
         alerts.update(t.get("alerts") or {})
         price_states = st.get("price") or {}
+        market = (t.get("market") or "spot").lower()
         collected, statuses, closed_list, failed = [], [], [], []
 
         for sym in t.get("symbols") or []:
             try:
                 ev, status, closed_ms, pst = scan_symbol(
-                    sym, t["interval"], since, alerts, price_states.get(sym) or {})
+                    sym, t["interval"], since, alerts, price_states.get(sym) or {}, market)
             except Exception as exc:  # noqa: BLE001
                 failed.append("%s: %s" % (sym, exc))
                 log.warning("任务[%s] %s 抓取失败：%s", name, sym, exc)

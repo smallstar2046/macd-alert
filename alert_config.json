@@ -69,6 +69,40 @@
         "priceAbove": 0,
         "priceBelow": 0
       }
+    },
+    {
+      "name": "合约-4H-金叉死叉",
+      "market": "futures",
+      "symbols": [
+        "RAYSOLUSDT",
+        "STRKUSDT",
+        "DASHUSDT",
+        "CRVUSDT"
+      ],
+      "interval": "4h",
+      "alerts": {
+        "golden": true,
+        "death": true
+      },
+      "to": [],
+      "note": "coin：RAYSOL=Raydium（合约代码）/ STRK / DASH / CRV；数据取合约（永续）行情，若合约源不可用会自动回落到等价现货"
+    },
+    {
+      "name": "合约-1D-金叉死叉",
+      "market": "futures",
+      "symbols": [
+        "RAYSOLUSDT",
+        "STRKUSDT",
+        "DASHUSDT",
+        "CRVUSDT"
+      ],
+      "interval": "1d",
+      "alerts": {
+        "golden": true,
+        "death": true
+      },
+      "to": [],
+      "note": "coin：RAYSOL=Raydium（合约代码）/ STRK / DASH / CRV；数据取合约（永续）行情，若合约源不可用会自动回落到等价现货"
     }
   ]
 }
