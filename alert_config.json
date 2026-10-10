@@ -9,6 +9,8 @@
   },
   "pollMinutes": 10,
   "notifyOnStart": true,
+  "capital": 100,
+  "riskPct": 1,
   "tasks": [
     {
       "name": "BTC-4H",

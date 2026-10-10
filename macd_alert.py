@@ -100,6 +100,10 @@ DEFAULT_CONFIG = {
     },
     "pollMinutes": 10,
     "notifyOnStart": True,
+    # 参考仓位：总资金（USDT）与单笔基础风险比例（%）。
+    # capital 填 0 可整体关闭「参考仓位」；riskPct 是「标准档」的风险，档位会按 ADX/RSI 缩放。
+    "capital": 100.0,
+    "riskPct": 1.0,
     "tasks": [],
 }
 
@@ -159,6 +163,16 @@ def save_json(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _fnum(v, default) -> float:
+    """把配置里的数字安全转成 float；空值或非法值回退到 default。"""
+    try:
+        if v is None or v == "":
+            return float(default)
+        return float(v)
+    except (TypeError, ValueError):
+        return float(default)
+
+
 def load_config() -> dict:
     cfg = load_json(CONFIG_PATH, None)
     if cfg is None:
@@ -169,6 +183,8 @@ def load_config() -> dict:
     out["smtp"].update(cfg.get("smtp") or {})
     out["pollMinutes"] = int(cfg.get("pollMinutes") or DEFAULT_CONFIG["pollMinutes"])
     out["notifyOnStart"] = bool(cfg.get("notifyOnStart", True))
+    out["capital"] = _fnum(cfg.get("capital"), DEFAULT_CONFIG["capital"])
+    out["riskPct"] = _fnum(cfg.get("riskPct"), DEFAULT_CONFIG["riskPct"])
     out["tasks"] = cfg.get("tasks") or []
     # 云端部署用：授权码可由环境变量注入（GitHub Secrets），无需写进仓库
     env_pwd = (os.environ.get("MACD_SMTP_PASSWORD") or "").strip()
@@ -649,10 +665,100 @@ def _rsi_txt(v):
     return "RSI %.1f（已超卖）" % v
 
 
-def event_reading(e) -> str:
+# ---------------------------------------------------------------- 参考仓位
+# 思路：先锁定「这笔最多亏多少」，再反推「该买多少」。
+#   风险金额 = 总资金 × 基础风险比例 × 档位倍数
+#   仓位数量 = 风险金额 ÷ 参考止损距离（1.5 × ATR）
+QUOTES = ("USDT", "USDC", "BUSD", "FDUSD", "USD", "BTC", "ETH")
+BASE_ALIAS = {"RAYSOL": "RAY"}      # 合约代码 -> 常见叫法，只为邮件里读着顺
+
+
+def fmt_qty(v: float) -> str:
+    """数量（币的个数）小数位自适应：高价币给足位数，山寨币取整。"""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return "-"
+    if v <= 0:
+        return "0"
+    if v >= 1000:
+        s = "%.0f" % v
+    elif v >= 1:
+        s = "%.4f" % v
+    elif v >= 0.01:
+        s = "%.5f" % v
+    else:
+        s = "%.8f" % v
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return s or "0"
+
+
+def base_asset(symbol: str) -> str:
+    """BTCUSDT -> BTC；RAYSOLUSDT -> RAY。取不到就原样返回。"""
+    s = (symbol or "").upper().replace("_", "").replace("-", "").replace("/", "")
+    for q in QUOTES:
+        if s.endswith(q) and len(s) > len(q):
+            b = s[: -len(q)]
+            return BASE_ALIAS.get(b, b)
+    return symbol
+
+
+def risk_tier(adx, rsi):
+    """按 ADX / RSI 给出（相对基础风险的倍数, 档位名）。"""
+    if rsi is not None and rsi >= 70:
+        return 0.5, "追高档 0.5倍"
+    if adx is None:
+        return 1.0, "标准档 1倍"
+    if adx >= 30 and (rsi is None or 40 <= rsi <= 65):
+        return 2.0, "满档 2倍"
+    if adx >= 25:
+        return 1.0, "标准档 1倍"
+    if adx >= 20:
+        return 0.5, "试探档 0.5倍"
+    return 0.5, "震荡档 0.5倍"
+
+
+def stop_distance(e):
+    """参考止损距离 = 1.5 × ATR；ATR 缺失时返回 None。"""
+    atr = e.get("atr")
+    if atr is None or atr <= 0:
+        return None
+    return 1.5 * atr
+
+
+def position_hint(e, capital: float = 0.0, risk_pct: float = 1.0) -> str:
+    """金叉类信号给出「参考仓位」。死叉是离场信号、不给开仓量；capital<=0 时整体关闭。"""
+    capital = _fnum(capital, 0)
+    risk_pct = _fnum(risk_pct, 1.0)
+    if capital <= 0:
+        return ""
+    if (e.get("type") or "") not in GOLDEN_TYPES:
+        return ""
+    px = e.get("close")
+    dist = stop_distance(e)
+    if not px or px <= 0 or not dist:
+        return ""
+    mult, tier = risk_tier(e.get("adx"), e.get("rsi"))
+    risk_amt = capital * risk_pct / 100.0 * mult
+    qty = risk_amt / dist
+    notional = qty * px
+    pct = notional / capital * 100.0
+    warn = ""
+    if notional > capital * 1.001:
+        warn = "，需 %.1f 倍杠杆" % (notional / capital)
+    elif notional < 5:
+        warn = "，低于最小下单额"
+    return "参考仓位 %s %s（名义 %.0f USDT，占总资金 %.0f%%，止损价 %s，最大亏损 %.2f USDT，%s%s）" % (
+        fmt_qty(qty), base_asset(e.get("symbol")), notional, pct,
+        fmt_price(px - dist), risk_amt, tier, warn)
+
+
+def event_reading(e, capital: float = 0.0, risk_pct: float = 1.0) -> str:
     """把单个信号的「零轴位置 + ADX 趋势强度 + RSI 强弱 + ATR 波幅」拼成一句解读和建议。
 
     只对金叉/死叉类信号解读；柱体变色、零轴穿越、价格突破不解读。
+    金叉类信号若配置了总资金，还会附上「参考仓位」。
     """
     t = e.get("type") or ""
     if t in GOLDEN_TYPES:
@@ -685,22 +791,24 @@ def event_reading(e) -> str:
         else:
             tip = "先减一部分留一部分" + exit_line
     pos = "零轴上方" if (e.get("dif") or 0) > 0 else "零轴下方"
-    return "%s %s %s（%s）→ %s · %s ｜ 解读：%s" % (
+    line = "%s %s %s（%s）→ %s · %s ｜ 解读：%s" % (
         e.get("symbol"), (e.get("interval") or "").upper(),
         SHORT_LABEL.get(t, t), pos, _adx_txt(adx), _rsi_txt(r), tip)
+    hint = position_hint(e, capital, risk_pct)
+    return line + (" ｜ " + hint if hint else "")
 
 
-def event_readings(events) -> list:
+def event_readings(events, capital: float = 0.0, risk_pct: float = 1.0) -> list:
     out = []
     for e in events:
-        s = event_reading(e)
+        s = event_reading(e, capital, risk_pct)
         if s and s not in out:
             out.append(s)
     return out
 
 
-def reads_html(events) -> str:
-    lines = event_readings(events)
+def reads_html(events, capital: float = 0.0, risk_pct: float = 1.0) -> str:
+    lines = event_readings(events, capital, risk_pct)
     if not lines:
         return ""
     body = "<br>".join(
@@ -714,14 +822,14 @@ def reads_html(events) -> str:
             "%s</div></div>") % body
 
 
-def reads_text(events) -> list:
-    lines = event_readings(events)
+def reads_text(events, capital: float = 0.0, risk_pct: float = 1.0) -> list:
+    lines = event_readings(events, capital, risk_pct)
     if not lines:
         return []
     return ["【指标解读与建议】"] + ["· " + h for h in lines] + [""]
 
 
-def event_table(events, title: str) -> str:
+def event_table(events, title: str, capital: float = 0.0, risk_pct: float = 1.0) -> str:
     rows = []
     for e in events:
         cls = "up" if e["type"] in ("golden", "goldenBelowZero", "priceAbove", "zeroCross") else "down"
@@ -749,20 +857,23 @@ def event_table(events, title: str) -> str:
 <p style="font-size:12px;color:#8a8a85;line-height:1.7;margin-top:12px">
 .up{color:#D8453F}.down{color:#12946A}<br>
 ADX ≥ 25 视为趋势市（信号更可信），＜ 20 多为震荡市（假信号偏多）；RSI 70 以上超买、30 以下超卖。<br>
+参考仓位 = 总资金 × 单笔风险比例 × 档位倍数 ÷（1.5×ATR 止损距离）；档位由 ADX/RSI 决定，仅金叉信号给出，死叉属离场信号不给开仓量。<br>
 信号按 K 线收盘确认，未收盘 K 线不计入。本邮件由本地程序自动发送，仅供参考，不构成投资建议。
-</p></body></html>""" % (title, hints_html(events) + reads_html(events), "".join(rows))
+</p></body></html>""" % (title, hints_html(events) + reads_html(events, capital, risk_pct),
+                        "".join(rows))
 
 
-def event_text(events, title: str) -> str:
+def event_text(events, title: str, capital: float = 0.0, risk_pct: float = 1.0) -> str:
     lines = [title, ""]
     lines += hints_text(events)
-    lines += reads_text(events)
+    lines += reads_text(events, capital, risk_pct)
     for e in events:
         lines.append("[%s] %s %s  %s  收盘 %s  DIF %+.6f  柱 %+.6f  ADX %s  RSI %s" % (
             e["symbol"], e["interval"].upper(), e["label"], e["time"],
             fmt_price(e["close"]), e["dif"], e["hist"],
             _num(e.get("adx")), _num(e.get("rsi"))))
-    lines += ["", "信号按 K 线收盘确认，未收盘 K 线不计入。",
+    lines += ["", "参考仓位 = 总资金 × 单笔风险比例 × 档位倍数 ÷（1.5×ATR 止损距离）；仅金叉信号给出。",
+              "信号按 K 线收盘确认，未收盘 K 线不计入。",
               "本邮件由本地程序自动发送，仅供参考，不构成投资建议。"]
     return "\n".join(lines)
 
@@ -771,6 +882,8 @@ def event_text(events, title: str) -> str:
 def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
     state = load_json(STATE_PATH, {})
     tasks = cfg["tasks"]
+    cap = _fnum(cfg.get("capital"), 0)
+    riskp = _fnum(cfg.get("riskPct"), 1.0)
     if not tasks:
         log.warning("alert_config.json 里没有任何 task，未做任何事")
         return 0
@@ -829,7 +942,8 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
                 "、".join(sorted({e["symbol"].replace("USDT", "") for e in collected})), len(collected))
             try:
                 send_mail(cfg["smtp"], to, title,
-                          event_text(collected, title), event_table(collected, title))
+                          event_text(collected, title, cap, riskp),
+                          event_table(collected, title, cap, riskp))
                 mails += 1
                 sent_ok = True
                 log.info("任务[%s] 已发邮件至 %s（%d 个事件）", name, ",".join(to), len(collected))
@@ -921,6 +1035,8 @@ def cmd_status(cfg: dict) -> None:
         smtp["host"], smtp["port"], smtp["user"],
         "已填写" if smtp.get("password") else "**未填写**"))
     print("检查频率：每 %s 分钟" % cfg["pollMinutes"])
+    print("参考仓位：总资金 %s USDT，单笔基础风险 %s%%（填 0 关闭）" % (
+        cfg.get("capital"), cfg.get("riskPct")))
     print("任务数：%d" % len(cfg["tasks"]))
     for t in cfg["tasks"]:
         name = t.get("name")
