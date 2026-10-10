@@ -320,6 +320,91 @@ def macd(closes, fast=12, slow=26, signal=9):
     return dif, dea, hist
 
 
+IND_PERIOD = 14
+
+
+def rsi_series(closes, period=IND_PERIOD):
+    """Wilder RSI(period)。返回与 closes 等长列表，前 period 个为 None。"""
+    out = [None] * len(closes)
+    if len(closes) <= period:
+        return out
+    gain = loss = 0.0
+    for i in range(1, period + 1):
+        ch = closes[i] - closes[i - 1]
+        gain += max(ch, 0.0)
+        loss += max(-ch, 0.0)
+    ag, al = gain / period, loss / period
+    for i in range(period, len(closes)):
+        if i > period:
+            ch = closes[i] - closes[i - 1]
+            ag = (ag * (period - 1) + max(ch, 0.0)) / period
+            al = (al * (period - 1) + max(-ch, 0.0)) / period
+        out[i] = 100.0 if al == 0 else 100.0 - 100.0 / (1.0 + ag / al)
+    return out
+
+
+def atr_series(candles, period=IND_PERIOD):
+    """Wilder ATR(period)。返回与 candles 等长列表，前 period 个为 None。"""
+    n = len(candles)
+    out = [None] * n
+    if n <= period:
+        return out
+    tr = []
+    for i in range(1, n):
+        h, l, pc = candles[i]["high"], candles[i]["low"], candles[i - 1]["close"]
+        tr.append(max(h - l, abs(h - pc), abs(l - pc)))
+    a = sum(tr[:period]) / period
+    out[period] = a
+    for k in range(period, len(tr)):
+        a = (a * (period - 1) + tr[k]) / period
+        out[k + 1] = a
+    return out
+
+
+def adx_series(candles, period=IND_PERIOD):
+    """Wilder ADX 与 +DI / -DI。返回 (adx, pdi, mdi) 三个等长列表。"""
+    n = len(candles)
+    adx, pdi, mdi = [None] * n, [None] * n, [None] * n
+    if n <= period * 2:
+        return adx, pdi, mdi
+    tr, pdm, mdm = [0.0], [0.0], [0.0]
+    for i in range(1, n):
+        h, l = candles[i]["high"], candles[i]["low"]
+        ph, pl, pc = candles[i - 1]["high"], candles[i - 1]["low"], candles[i - 1]["close"]
+        tr.append(max(h - l, abs(h - pc), abs(l - pc)))
+        up, dn = h - ph, pl - l
+        pdm.append(up if (up > dn and up > 0) else 0.0)
+        mdm.append(dn if (dn > up and dn > 0) else 0.0)
+
+    def wilder(vals):
+        out = [None] * n
+        s = sum(vals[1:period + 1])
+        out[period] = s
+        for i in range(period + 1, n):
+            s = s - s / period + vals[i]
+            out[i] = s
+        return out
+
+    str_s, sp, sm = wilder(tr), wilder(pdm), wilder(mdm)
+    dxs = []
+    for i in range(period, n):
+        if not str_s[i]:
+            continue
+        p = 100.0 * sp[i] / str_s[i]
+        m = 100.0 * sm[i] / str_s[i]
+        pdi[i], mdi[i] = p, m
+        tot = p + m
+        dxs.append((i, 0.0 if tot == 0 else 100.0 * abs(p - m) / tot))
+    if len(dxs) < period:
+        return adx, pdi, mdi
+    a = sum(v for _, v in dxs[:period]) / period
+    adx[dxs[period - 1][0]] = a
+    for k in range(period, len(dxs)):
+        a = (a * (period - 1) + dxs[k][1]) / period
+        adx[dxs[k][0]] = a
+    return adx, pdi, mdi
+
+
 def cross_dir(a, b):
     out = [0] * len(a)
     for i in range(1, len(a)):
@@ -343,6 +428,17 @@ def scan_symbol(symbol: str, interval: str, since_ms: int, alerts: dict,
     dif, dea, hist = macd(closes)
     x = cross_dir(dif, dea)
     zx = cross_dir(dif, [0.0] * len(dif))
+    rsis = rsi_series(closes)
+    atrs = atr_series(candles)
+    adxs, _pdi, _mdi = adx_series(candles)
+
+    def ind_of(idx):
+        """该根 K 线对应的 ADX / RSI / ATR，供信号与状态共用。"""
+        return {
+            "adx": None if adxs[idx] is None else round(adxs[idx], 2),
+            "rsi": None if rsis[idx] is None else round(rsis[idx], 2),
+            "atr": None if atrs[idx] is None else round(atrs[idx], 8),
+        }
 
     now_ms = int(time.time() * 1000)
     closed = [i for i, c in enumerate(candles) if c["closeTime"] <= now_ms]
@@ -359,6 +455,7 @@ def scan_symbol(symbol: str, interval: str, since_ms: int, alerts: dict,
             "time": bj(t), "time_ms": t, "close": closes[j],
             "dif": round(dif[j], 8), "dea": round(dea[j], 8),
             "hist": round(hist[j], 8), "gap": round(dif[j] - dea[j], 8),
+            **ind_of(j),
         }
 
     events = []
@@ -395,7 +492,7 @@ def scan_symbol(symbol: str, interval: str, since_ms: int, alerts: dict,
                            "symbol": symbol, "interval": interval, "time": bj(candles[live]["closeTime"]),
                            "time_ms": int(time.time() * 1000), "close": px,
                            "dif": round(dif[live], 8), "dea": round(dea[live], 8),
-                           "hist": round(hist[live], 8), "gap": 0.0})
+                           "hist": round(hist[live], 8), "gap": 0.0, **ind_of(live)})
         st["above"] = now
     if pb > 0:
         was = bool(st.get("below"))
@@ -405,7 +502,7 @@ def scan_symbol(symbol: str, interval: str, since_ms: int, alerts: dict,
                            "symbol": symbol, "interval": interval, "time": bj(candles[live]["closeTime"]),
                            "time_ms": int(time.time() * 1000), "close": px,
                            "dif": round(dif[live], 8), "dea": round(dea[live], 8),
-                           "hist": round(hist[live], 8), "gap": 0.0})
+                           "hist": round(hist[live], 8), "gap": 0.0, **ind_of(live)})
         st["below"] = now
 
     status = {
@@ -415,6 +512,7 @@ def scan_symbol(symbol: str, interval: str, since_ms: int, alerts: dict,
         "dif": round(dif[i], 8), "dea": round(dea[i], 8), "hist": round(hist[i], 8),
         "above_zero": dif[i] > 0, "above_dea": dif[i] > dea[i],
         "price": px, "live_dif": round(dif[live], 8), "live_dea": round(dea[live], 8),
+        **ind_of(i),
     }
     return events, status, candles[i]["closeTime"], st
 
@@ -514,6 +612,115 @@ def hints_text(events) -> list:
     return ["【操作提示】"] + ["· " + h for h in lines] + [""]
 
 
+# ---------------------------------------------------------------- 指标解读与建议
+SHORT_LABEL = {
+    "golden": "金叉",
+    "goldenBelowZero": "零轴下方金叉",
+    "death": "死叉",
+    "deathAboveZero": "零轴上方死叉",
+}
+
+
+def _num(v, nd=1):
+    return "-" if v is None else ("%.*f" % (nd, v))
+
+
+def _adx_txt(v):
+    if v is None:
+        return "ADX 数据不足"
+    if v >= 25:
+        return "ADX %.1f（趋势较强）" % v
+    if v >= 20:
+        return "ADX %.1f（趋势酝酿）" % v
+    return "ADX %.1f（震荡为主）" % v
+
+
+def _rsi_txt(v):
+    if v is None:
+        return "RSI 数据不足"
+    if v >= 70:
+        return "RSI %.1f（已超买）" % v
+    if v >= 55:
+        return "RSI %.1f（偏强）" % v
+    if v > 45:
+        return "RSI %.1f（中性）" % v
+    if v > 30:
+        return "RSI %.1f（偏弱）" % v
+    return "RSI %.1f（已超卖）" % v
+
+
+def event_reading(e) -> str:
+    """把单个信号的「零轴位置 + ADX 趋势强度 + RSI 强弱 + ATR 波幅」拼成一句解读和建议。
+
+    只对金叉/死叉类信号解读；柱体变色、零轴穿越、价格突破不解读。
+    """
+    t = e.get("type") or ""
+    if t in GOLDEN_TYPES:
+        kind = "golden"
+    elif t in DEATH_TYPES:
+        kind = "death"
+    else:
+        return ""
+    adx, r, atr = e.get("adx"), e.get("rsi"), e.get("atr")
+    if adx is None and r is None:
+        return ""
+    strong = adx is not None and adx >= 25
+    weak = adx is not None and adx < 20
+    stop = "" if atr is None else "，参考止损 1.5×ATR ≈ %s" % fmt_price(1.5 * atr)
+    exit_line = "" if atr is None else "，参考离场线 1.5×ATR ≈ %s" % fmt_price(1.5 * atr)
+    if kind == "golden":
+        if r is not None and r >= 70:
+            tip = "动能已有透支迹象，别追高，等回踩不破再看"
+        elif strong:
+            tip = "趋势与动能配合，可按计划分批进" + stop
+        elif weak:
+            tip = "多半是震荡中的反弹，先轻仓试探，等 ADX 站上 25 再加"
+        else:
+            tip = "信号中等，别重仓，等站稳零轴或 ADX 走强再确认"
+    else:
+        if strong:
+            tip = "趋势转弱确认度较高，注意减仓，别急着抄底"
+        elif weak:
+            tip = "震荡里的回落，未必是趋势反转，可先减半观察"
+        else:
+            tip = "先减一部分留一部分" + exit_line
+    pos = "零轴上方" if (e.get("dif") or 0) > 0 else "零轴下方"
+    return "%s %s %s（%s）→ %s · %s ｜ 解读：%s" % (
+        e.get("symbol"), (e.get("interval") or "").upper(),
+        SHORT_LABEL.get(t, t), pos, _adx_txt(adx), _rsi_txt(r), tip)
+
+
+def event_readings(events) -> list:
+    out = []
+    for e in events:
+        s = event_reading(e)
+        if s and s not in out:
+            out.append(s)
+    return out
+
+
+def reads_html(events) -> str:
+    lines = event_readings(events)
+    if not lines:
+        return ""
+    body = "<br>".join(
+        "<span style=\"font-size:16px;font-weight:700;color:#0C447C\">"
+        "· %s</span>" % h for h in lines)
+    return ("<div style=\"background:#E6F1FB;border-left:6px solid #378ADD;"
+            "padding:13px 16px;margin:0 0 14px\">"
+            "<div style=\"font-size:22px;font-weight:800;color:#0C447C;"
+            "letter-spacing:1px;margin:0 0 6px\">📊 指标解读与建议</div>"
+            "<div style=\"font-size:16px;line-height:1.9;color:#185FA5\">"
+            "%s</div></div>") % body
+
+
+def reads_text(events) -> list:
+    lines = event_readings(events)
+    if not lines:
+        return []
+    return ["【指标解读与建议】"] + ["· " + h for h in lines] + [""]
+
+
 def event_table(events, title: str) -> str:
     rows = []
     for e in events:
@@ -522,11 +729,13 @@ def event_table(events, title: str) -> str:
             "<tr>"
             "<td>%s</td><td>%s</td><td class='%s'>%s</td>"
             "<td>%s</td><td>%s</td><td>%s</td><td>%s</td>"
+            "<td align='right'>%s</td><td align='right'>%s</td>"
             "</tr>" % (
                 e["symbol"], e["interval"].upper(), cls, e["label"],
                 e["time"], fmt_price(e["close"]),
                 ("%+.6f" % e["dif"]).rstrip("0").rstrip("."),
                 ("%+.6f" % e["hist"]).rstrip("0").rstrip("."),
+                _num(e.get("adx")), _num(e.get("rsi")),
             ))
     return """<html><body style="font-family:system-ui,'Microsoft YaHei',sans-serif;color:#2C2C2A">
 <h3 style="margin:0 0 10px">%s</h3>
@@ -534,21 +743,25 @@ def event_table(events, title: str) -> str:
 <thead><tr style="background:#f7f6f3;color:#8a8a85">
 <th align="left">币种</th><th align="left">周期</th><th align="left">信号</th>
 <th align="left">确认时间(北京)</th><th align="right">收盘价</th>
-<th align="right">DIF</th><th align="right">MACD柱</th></tr></thead>
+<th align="right">DIF</th><th align="right">MACD柱</th>
+<th align="right">ADX</th><th align="right">RSI</th></tr></thead>
 <tbody>%s</tbody></table>
 <p style="font-size:12px;color:#8a8a85;line-height:1.7;margin-top:12px">
 .up{color:#D8453F}.down{color:#12946A}<br>
+ADX ≥ 25 视为趋势市（信号更可信），＜ 20 多为震荡市（假信号偏多）；RSI 70 以上超买、30 以下超卖。<br>
 信号按 K 线收盘确认，未收盘 K 线不计入。本邮件由本地程序自动发送，仅供参考，不构成投资建议。
-</p></body></html>""" % (title, hints_html(events), "".join(rows))
+</p></body></html>""" % (title, hints_html(events) + reads_html(events), "".join(rows))
 
 
 def event_text(events, title: str) -> str:
     lines = [title, ""]
     lines += hints_text(events)
+    lines += reads_text(events)
     for e in events:
-        lines.append("[%s] %s %s  %s  收盘 %s  DIF %+.6f  柱 %+.6f" % (
+        lines.append("[%s] %s %s  %s  收盘 %s  DIF %+.6f  柱 %+.6f  ADX %s  RSI %s" % (
             e["symbol"], e["interval"].upper(), e["label"], e["time"],
-            fmt_price(e["close"]), e["dif"], e["hist"]))
+            fmt_price(e["close"]), e["dif"], e["hist"],
+            _num(e.get("adx")), _num(e.get("rsi"))))
     lines += ["", "信号按 K 线收盘确认，未收盘 K 线不计入。",
               "本邮件由本地程序自动发送，仅供参考，不构成投资建议。"]
     return "\n".join(lines)
@@ -718,9 +931,10 @@ def cmd_status(cfg: dict) -> None:
         print("   游标：%s (%s)   上次运行：%s" % (
             st.get("since", "(未初始化)"), st.get("since_time") or "-", st.get("last_run") or "-"))
         for s in st.get("last_status") or []:
-            print("     %-10s %s 收 %s  DIF %+.6f  DEA %+.6f  柱 %+.6f  零轴上=%s 多头=%s" % (
+            print("     %-10s %s 收 %s  DIF %+.6f  DEA %+.6f  柱 %+.6f  零轴上=%s 多头=%s  ADX %s  RSI %s" % (
                 s["symbol"], s["bar_time"], fmt_price(s["bar_close"]),
-                s["dif"], s["dea"], s["hist"], s["above_zero"], s["above_dea"]))
+                s["dif"], s["dea"], s["hist"], s["above_zero"], s["above_dea"],
+                _num(s.get("adx")), _num(s.get("rsi"))))
     print("\n状态文件：%s\n日志文件：%s" % (STATE_PATH, LOG_PATH))
 
 
