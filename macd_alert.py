@@ -68,7 +68,7 @@ SPOT_EQUIV = {"RAYSOLUSDT": "RAYUSDT"}
 UPSTREAMS = SPOT_UPSTREAMS
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) macd-alert/1.0"}
 KLINES_LIMIT = 400
-FETCH_TIMEOUT = 20
+FETCH_TIMEOUT = 12          # 正常取数 <2s；不可达上游不必白等 20s
 
 BAR_MS = {
     "5m": 300_000, "15m": 900_000, "30m": 1_800_000,
@@ -293,29 +293,53 @@ _FETCHERS = {
 }
 
 
+# 同一次运行内的取数缓存：多任务会重复取同一个「币种 + 周期」（如 BTCUSDT 4h 被
+# BTC-4H 与共振任务各取一次），缓存 90 秒即可在本轮内复用、跨轮自动失效。
+_KL_CACHE = {}
+KL_CACHE_TTL = 90
+
+
 def fetch_klines(symbol: str, interval: str, market: str = "spot"):
+    """多上游容错抓取（带 90 秒进程内缓存），返回 (source_name, candles)。"""
+    m = (market or "spot").lower()
+    key = (m, symbol, interval)
+    hit = _KL_CACHE.get(key)
+    if hit and hit[0] > time.time():
+        return hit[1], hit[2]
+    name, candles = _fetch_klines(symbol, interval, m)
+    _KL_CACHE[key] = (time.time() + KL_CACHE_TTL, name, candles)
+    return name, candles
+
+
+def _fetch_klines(symbol: str, interval: str, market: str = "spot"):
     """多上游容错抓取，返回 (source_name, candles)；全部失败抛 RuntimeError。
 
     market="futures" 时先走合约上游；合约源全部失败后，用「现货等价物」
     （如合约 RAYSOLUSDT -> 现货 RAYUSDT）兜底，保证信号不会因单一渠道挂掉而中断。
     """
     errs = []
-    chains = []
+    equiv = SPOT_EQUIV.get(symbol)
+    tries = []                                   # 待试上游：(name, kind, base, sym)
     if (market or "spot").lower() == "futures":
-        chains.append(("futures", FUTURES_UPSTREAMS, symbol))
-        chains.append(("spot", SPOT_UPSTREAMS, SPOT_EQUIV.get(symbol, symbol)))
+        tries += [(n, k, b, symbol) for n, k, b in FUTURES_UPSTREAMS]
+    spot_self = [(n, k, b, symbol) for n, k, b in SPOT_UPSTREAMS]
+    if equiv and equiv != symbol:
+        # 合约代码在现货里往往叫别的名字（如 RAYSOLUSDT -> RAYUSDT）。
+        # 若把等价物放在整条链的最后，一旦是「命名不一致」就要白等一轮超时
+        # （实测 RAYSOLUSDT × 3 个周期 ≈ 7 分钟）。改为先各试一条主链，再依次回退。
+        spot_eq = [(n, k, b, equiv) for n, k, b in SPOT_UPSTREAMS]
+        tries += spot_self[:1] + spot_eq[:1] + spot_self[1:] + spot_eq[1:]
     else:
-        chains.append(("spot", SPOT_UPSTREAMS, symbol))
+        tries += spot_self
 
-    for tag, ups, sym in chains:
-        for name, kind, base in ups:
-            try:
-                candles = _FETCHERS[kind](base, sym, interval)
-                if tag == "spot" and market and market.lower() == "futures":
-                    name = "%s（现货替代 %s）" % (name, sym)
-                return name, candles
-            except Exception as exc:  # noqa: BLE001
-                errs.append("%s -> %s" % (name, exc))
+    for name, kind, base, sym in tries:
+        try:
+            candles = _FETCHERS[kind](base, sym, interval)
+            if sym != symbol:
+                name = "%s（现货替代 %s）" % (name, sym)
+            return name, candles
+        except Exception as exc:  # noqa: BLE001
+            errs.append("%s -> %s" % (name, exc))
     raise RuntimeError("%s %s 抓取失败：%s" % (symbol, interval, "；".join(errs)))
 
 
@@ -533,6 +557,115 @@ def scan_symbol(symbol: str, interval: str, since_ms: int, alerts: dict,
     return events, status, candles[i]["closeTime"], st
 
 
+# ---------------------------------------------------------------- 多周期共振扫描
+def _interval_read(symbol: str, interval: str, window: int, market: str = "spot",
+                   now_ms: int = 0):
+    """单周期读数 + 「最近 window 根已收盘 K 线内」的零轴反转形态。
+
+    返回 (info, closed_ms, cur_close)；info 为 None 表示该周期未出现目标形态。
+    """
+    host, candles = fetch_klines(symbol, interval, market)
+    closes = [c["close"] for c in candles]
+    dif, dea, hist = macd(closes)
+    x = cross_dir(dif, dea)
+    rsis = rsi_series(closes)
+    atrs = atr_series(candles)
+    adxs, _pdi, _mdi = adx_series(candles)
+
+    now_ms = int(now_ms) or int(time.time() * 1000)   # now_ms>0 用于历史回放
+    closed = [i for i, c in enumerate(candles) if c["closeTime"] <= now_ms]
+    i = closed[-1]
+    lo = max(1, i - max(1, int(window)) + 1)
+    hit = None
+    for j in range(i, lo - 1, -1):      # 由新到旧，取最近一次命中的形态
+        if x[j] == 1 and dif[j] < 0:
+            hit = (RESO_GOLDEN, j)
+            break
+        if x[j] == -1 and dif[j] > 0:
+            hit = (RESO_DEATH, j)
+            break
+
+    info = None
+    if hit:
+        kind, j = hit
+        info = {
+            "interval": interval, "kind": kind,
+            "time": bj(candles[j]["closeTime"]), "time_ms": candles[j]["closeTime"],
+            "close": closes[j], "dif": round(dif[j], 8), "dea": round(dea[j], 8),
+            "hist": round(hist[j], 8), "gap": round(dif[j] - dea[j], 8),
+            "adx": None if adxs[j] is None else round(adxs[j], 2),
+            "rsi": None if rsis[j] is None else round(rsis[j], 2),
+            "atr": None if atrs[j] is None else round(atrs[j], 8),
+            "source": host,
+        }
+    return info, candles[i]["closeTime"], closes[i]
+
+
+def _reso_sig(hits, intervals) -> str:
+    """共振签名：只有各周期形态完全一致时才非空。
+
+    同一批信号在其「存活期」（仍落在各周期窗口内）内签名保持不变，据此去重；
+    信号老化出窗口后签名变为空串 -> 自动解除，之后新出现的共振才会再次提醒。
+    """
+    if any(h is None for h in hits):
+        return ""
+    kinds = {h["kind"] for h in hits}
+    if len(kinds) != 1:
+        return ""
+    return "%s@%s" % (kinds.pop(), "|".join(
+        "%s:%d" % (iv, hits[k]["time_ms"]) for k, iv in enumerate(intervals)))
+
+
+def resonance_scan(symbol: str, intervals, window: int, alerts: dict, market: str = "spot",
+                   now_ms: int = 0):
+    """各周期同时出现同一种零轴反转形态 -> 一个共振事件。
+
+    返回 (event_or_None, status, closed_ms, signature)
+    """
+    ivs = [str(x).lower() for x in intervals]
+    hits, closed_list, curs = [], [], []
+    for iv in ivs:
+        info, cm, px = _interval_read(symbol, iv, window, market, now_ms)
+        hits.append(info)
+        closed_list.append(cm)
+        curs.append(px)
+
+    sig = _reso_sig(hits, ivs)
+    event = None
+    if sig and alerts.get(hits[0]["kind"], True):
+        kind = hits[0]["kind"]
+        iv_txt = "/".join(iv.upper() for iv in ivs)
+        main = hits[-1]                       # 用最大周期的读数做展示与解读基准
+        newest = max(h["time_ms"] for h in hits)
+        zh = "零轴下方金叉" if kind == RESO_GOLDEN else "零轴上方死叉"
+        event = {
+            "type": kind, "label": "三周期共振·%s（%s 均出现）" % (zh, iv_txt),
+            "symbol": symbol, "interval": "/".join(ivs),
+            "time": bj(newest), "time_ms": newest,
+            "close": main["close"], "dif": main["dif"], "dea": main["dea"],
+            "hist": main["hist"], "gap": main["gap"],
+            "adx": main["adx"], "rsi": main["rsi"], "atr": main["atr"],
+            "ref_interval": ivs[-1],
+            "reso": [{"interval": iv.upper(), "kind": h["kind"], "time": h["time"],
+                      "dif": h["dif"], "dea": h["dea"], "hist": h["hist"],
+                      "adx": h["adx"], "rsi": h["rsi"]}
+                     for iv, h in zip(ivs, hits)],
+        }
+
+    status = {
+        "symbol": symbol, "intervals": list(ivs), "window": int(window),
+        "market": market, "resonance": bool(sig),
+        "hits": {iv: (None if h is None else {"kind": h["kind"], "time": h["time"],
+                                              "dif": h["dif"], "dea": h["dea"],
+                                              "hist": h["hist"], "adx": h["adx"],
+                                              "rsi": h["rsi"]})
+                 for iv, h in zip(ivs, hits)},
+        "bar_time": bj(max(closed_list)),
+        "price": curs[-1],
+    }
+    return event, status, max(closed_list), sig
+
+
 # ---------------------------------------------------------------- 邮件
 def test_recipients(cfg: dict):
     """测试邮件收件人：配置中所有任务的收件人去重；若为空则发给发件邮箱自己。"""
@@ -588,12 +721,28 @@ HINTS = {
 GOLDEN_TYPES = ("golden", "goldenBelowZero")   # 金叉类信号
 DEATH_TYPES = ("death", "deathAboveZero")      # 死叉类信号
 
+# ---- 多周期共振（零轴反转）：多个周期同时出现同一种零轴反转形态 ----
+RESO_GOLDEN = "resoBelowGolden"   # 零轴下方 DIF 上穿 DEA（交叉时 DIF<0）
+RESO_DEATH = "resoAboveDeath"     # 零轴上方 DIF 下穿 DEA（交叉时 DIF>0）
+RESO_TYPES = (RESO_GOLDEN, RESO_DEATH)
+DEFAULT_RESO_ALERTS = {RESO_GOLDEN: True, RESO_DEATH: True}
+# 共振提醒句（用户指定）。想改措辞只改这里。
+HINTS_RESO = {
+    RESO_GOLDEN: "结合大周期和日K 看看是不是要出方向了 是不是应该有决定？",
+    RESO_DEATH: "结合大周期和日K 看看是不是要出方向了 是不是应该有决定？",
+}
+
 
 def event_hints(events) -> list:
     """按 (周期, 金叉/死叉) 生成操作提示，同一条只出现一次，顺序与事件一致。"""
     out = []
     for e in events:
         t = e.get("type") or ""
+        if t in RESO_TYPES:            # 多周期共振：整类共用一条提醒句
+            msg = HINTS_RESO.get(t)
+            if msg and msg not in out:
+                out.append(msg)
+            continue
         if t in GOLDEN_TYPES:
             kind = "golden"
         elif t in DEATH_TYPES:
@@ -634,6 +783,8 @@ SHORT_LABEL = {
     "goldenBelowZero": "零轴下方金叉",
     "death": "死叉",
     "deathAboveZero": "零轴上方死叉",
+    RESO_GOLDEN: "三周期共振·零轴下方金叉",
+    RESO_DEATH: "三周期共振·零轴上方死叉",
 }
 
 
@@ -733,13 +884,18 @@ def position_hint(e, capital: float = 0.0, risk_pct: float = 1.0) -> str:
     risk_pct = _fnum(risk_pct, 1.0)
     if capital <= 0:
         return ""
-    if (e.get("type") or "") not in GOLDEN_TYPES:
+    t = e.get("type") or ""
+    if t == RESO_GOLDEN:
+        # 三周期共振属左侧反转尝试，档位封顶在「试探档」，不在零轴下方重仓
+        mult, tier = 0.5, "共振试探档 0.5倍"
+    elif t in GOLDEN_TYPES:
+        mult, tier = risk_tier(e.get("adx"), e.get("rsi"))
+    else:
         return ""
     px = e.get("close")
     dist = stop_distance(e)
     if not px or px <= 0 or not dist:
         return ""
-    mult, tier = risk_tier(e.get("adx"), e.get("rsi"))
     risk_amt = capital * risk_pct / 100.0 * mult
     qty = risk_amt / dist
     notional = qty * px
@@ -754,6 +910,41 @@ def position_hint(e, capital: float = 0.0, risk_pct: float = 1.0) -> str:
         fmt_price(px - dist), risk_amt, tier, warn)
 
 
+def _reso_reading(e, capital: float = 0.0, risk_pct: float = 1.0) -> str:
+    """多周期共振的解读：强调「三周期同步」，但属左侧反转尝试，建议轻仓等确认。"""
+    adx, r, atr = e.get("adx"), e.get("rsi"), e.get("atr")
+    below = (e.get("type") or "") == RESO_GOLDEN
+    seg = []
+    for h in e.get("reso") or []:
+        t = (h.get("time") or "")
+        seg.append("%s %s %s" % (h.get("interval"),
+                                 "金叉" if h["kind"] == RESO_GOLDEN else "死叉",
+                                 t[11:16] if len(t) >= 16 else t))
+    weak = adx is not None and adx < 20
+    stop = "" if atr is None else "，参考止损 1.5×ATR ≈ %s" % fmt_price(1.5 * atr)
+    if below:
+        if weak:
+            tip = ("三周期同步转向、但大周期动能仍弱，多半是超跌反弹；先轻仓试探，"
+                   "等 ADX 站上 25 或 4H/日K 确认方向后再加") + stop
+        elif r is not None and r >= 70:
+            tip = "低位反转已启动但动能偏热，别追高，等回踩不破再看" + stop
+        else:
+            tip = ("短中周期已同步转多，可作底部反转的左侧尝试（轻仓），"
+                   "以 4H / 日K 能否站上零轴作为加仓条件") + stop
+    else:
+        if weak:
+            tip = "三周期同步转弱、但大周期动能不强，先减半观察，既别急着清仓也别急着抄底" + stop
+        else:
+            tip = "短中周期已同步转空，注意减仓、别急着抄底；有合约仓位的优先降杠杆" + stop
+    iv_txt = (e.get("interval") or "").upper()
+    zh = "零轴下方金叉" if below else "零轴上方死叉"
+    line = "%s %s 三周期共振·%s ｜ %s ｜ 4H 读数：%s · %s ｜ 解读：%s" % (
+        e.get("symbol"), iv_txt, zh, " · ".join(seg),
+        _adx_txt(adx), _rsi_txt(r), tip)
+    hint = position_hint(e, capital, risk_pct)
+    return line + (" ｜ " + hint if hint else "")
+
+
 def event_reading(e, capital: float = 0.0, risk_pct: float = 1.0) -> str:
     """把单个信号的「零轴位置 + ADX 趋势强度 + RSI 强弱 + ATR 波幅」拼成一句解读和建议。
 
@@ -761,6 +952,8 @@ def event_reading(e, capital: float = 0.0, risk_pct: float = 1.0) -> str:
     金叉类信号若配置了总资金，还会附上「参考仓位」。
     """
     t = e.get("type") or ""
+    if t in RESO_TYPES:
+        return _reso_reading(e, capital, risk_pct)
     if t in GOLDEN_TYPES:
         kind = "golden"
     elif t in DEATH_TYPES:
@@ -832,7 +1025,8 @@ def reads_text(events, capital: float = 0.0, risk_pct: float = 1.0) -> list:
 def event_table(events, title: str, capital: float = 0.0, risk_pct: float = 1.0) -> str:
     rows = []
     for e in events:
-        cls = "up" if e["type"] in ("golden", "goldenBelowZero", "priceAbove", "zeroCross") else "down"
+        cls = "up" if e["type"] in ("golden", "goldenBelowZero", "priceAbove",
+                                    "zeroCross", RESO_GOLDEN) else "down"
         rows.append(
             "<tr>"
             "<td>%s</td><td>%s</td><td class='%s'>%s</td>"
@@ -858,6 +1052,7 @@ def event_table(events, title: str, capital: float = 0.0, risk_pct: float = 1.0)
 .up{color:#D8453F}.down{color:#12946A}<br>
 ADX ≥ 25 视为趋势市（信号更可信），＜ 20 多为震荡市（假信号偏多）；RSI 70 以上超买、30 以下超卖。<br>
 参考仓位 = 总资金 × 单笔风险比例 × 档位倍数 ÷（1.5×ATR 止损距离）；档位由 ADX/RSI 决定，仅金叉信号给出，死叉属离场信号不给开仓量。<br>
+多周期共振 = 各周期同时出现同一种零轴反转形态；DIF / 柱 / ADX / RSI 取最大周期那根读数，参考仓位封顶在「试探档 0.5 倍」。<br>
 信号按 K 线收盘确认，未收盘 K 线不计入。本邮件由本地程序自动发送，仅供参考，不构成投资建议。
 </p></body></html>""" % (title, hints_html(events) + reads_html(events, capital, risk_pct),
                         "".join(rows))
@@ -878,6 +1073,103 @@ def event_text(events, title: str, capital: float = 0.0, risk_pct: float = 1.0) 
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------- 多周期共振任务
+def _run_resonance_task(t: dict, name: str, st: dict, cfg: dict,
+                        cap: float, riskp: float, dry_run: bool = False):
+    """多周期共振任务的一轮处理。返回 (事件数, 邮件数, 问题列表, 新状态)。"""
+    ivs = [str(x).lower() for x in t["intervals"]]
+    window = max(1, int(t.get("window") or 3))
+    market = (t.get("market") or "spot").lower()
+    alerts = dict(DEFAULT_RESO_ALERTS)
+    alerts.update(t.get("alerts") or {})
+    first_run = not st
+    old_sigs = dict(st.get("sigs") or {})
+    sigs = dict(old_sigs)
+    collected, statuses, closed_list, failed = [], [], [], []
+
+    for sym in t.get("symbols") or []:
+        try:
+            ev, status, closed_ms, sig = resonance_scan(sym, ivs, window, alerts, market)
+        except Exception as exc:  # noqa: BLE001
+            failed.append("%s: %s" % (sym, exc))
+            log.warning("任务[%s] %s 抓取失败：%s", name, sym, exc)
+            continue
+        statuses.append(status)
+        closed_list.append(closed_ms)
+        sigs[sym] = sig
+        if ev and sig and sig != (old_sigs.get(sym) or ""):
+            collected.append(ev)
+
+    collected.sort(key=lambda e: (e["time_ms"], e["symbol"]))
+    log.info("任务[%s] 共振窗口=最近 %s 根，命中 %d 个事件，成功 %d/%d 币种",
+             name, window, len(collected), len(statuses), len(t.get("symbols") or []))
+
+    problems = []
+    if dry_run:
+        for e in collected:
+            log.info("  [DRY] %s %s %s %s", e["symbol"], (e["interval"] or "").upper(),
+                     e["label"], e["time"])
+        return len(collected), 0, problems, st        # dry-run 不写状态
+
+    if first_run and collected:
+        log.info("任务[%s] 首次运行：跳过发送（%d 个共振信号仅记为基线）", name, len(collected))
+        collected = []
+
+    to = [a for a in (t.get("to") or []) if a]
+    sent_ok, mails = True, 0
+    if collected and not to:
+        sent_ok = False
+        problems.append("%s 未配置收件人" % name)
+        log.error("任务[%s] 没有收件人：请在 GitHub Secrets 里添加 MACD_MAIL_TO，"
+                  "或在 alert_config.json 的 to 里填收件邮箱；本轮不发信", name)
+    if collected and to:
+        title = "【MACD 共振】%s（%d 个）" % (
+            "、".join(sorted({e["symbol"].replace("USDT", "") for e in collected})),
+            len(collected))
+        try:
+            send_mail(cfg["smtp"], to, title,
+                      event_text(collected, title, cap, riskp),
+                      event_table(collected, title, cap, riskp))
+            mails += 1
+            log.info("任务[%s] 已发共振邮件至 %s（%d 个事件）", name, ",".join(to), len(collected))
+        except Exception as exc:  # noqa: BLE001
+            sent_ok = False
+            problems.append("%s 发信失败：%s" % (name, exc))
+            log.error("任务[%s] 发信失败：%s", name, exc)
+
+    if first_run and cfg.get("notifyOnStart") and sent_ok and to:
+        body = ("监控已启动（多周期共振）。\n\n任务：%s\n币种：%s\n周期：%s\n"
+                "共振窗口：各周期最近 %s 根已收盘 K 线\n收件人：%s\n启动时间：%s\n" % (
+                    name, ", ".join(t.get("symbols") or []),
+                    " / ".join(iv.upper() for iv in ivs), window,
+                    ", ".join(to), now_bj()))
+        try:
+            send_mail(cfg["smtp"], to,
+                      "【MACD 共振】已启动（%s）" % " / ".join(iv.upper() for iv in ivs),
+                      body, "<pre style='font:13px/1.6 Consolas,monospace'>%s</pre>" % body)
+            mails += 1
+            log.info("任务[%s] 已发启动通知", name)
+        except Exception as exc:  # noqa: BLE001
+            sent_ok = False
+            problems.append("%s 启动通知失败：%s" % (name, exc))
+
+    if not sent_ok:      # 发信失败不落新签名，下一轮重试
+        for e in collected:
+            sigs[e["symbol"]] = old_sigs.get(e["symbol"], "")
+        log.warning("任务[%s] 保持签名不动（失败项：%s）", name,
+                    "；".join(failed) if failed else "邮件未发出")
+
+    advanced = int(st.get("since") or 0)
+    if closed_list:
+        advanced = max(closed_list)
+    new_st = {
+        "since": advanced, "since_time": bj(advanced) if advanced else "",
+        "last_run": now_bj(), "last_events": len(collected),
+        "last_status": statuses, "sigs": sigs, "failed": failed,
+    }
+    return len(collected), mails, problems, new_st
+
+
 # ---------------------------------------------------------------- 主流程
 def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
     state = load_json(STATE_PATH, {})
@@ -890,8 +1182,18 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
 
     total_events, mails, problems = 0, 0, []
     for t in tasks:
-        name = t.get("name") or ("%s-%s" % (",".join(t.get("symbols") or []), t.get("interval")))
+        name = t.get("name") or ("%s-%s" % (
+            ",".join(t.get("symbols") or []),
+            t.get("interval") or "/".join(t.get("intervals") or [])))
         st = state.get(name) or {}
+        if isinstance(t.get("intervals"), list) and len(t["intervals"]) >= 2:
+            n_ev, n_mail, probs, new_st = _run_resonance_task(
+                t, name, st, cfg, cap, riskp, dry_run)
+            total_events += n_ev
+            mails += n_mail
+            problems.extend(probs)
+            state[name] = new_st
+            continue
         since = int(st.get("since") or 0)
         first_run = not st
         alerts = dict(DEFAULT_ALERTS)
@@ -1041,6 +1343,25 @@ def cmd_status(cfg: dict) -> None:
     for t in cfg["tasks"]:
         name = t.get("name")
         st = state.get(name) or {}
+        ivs = t.get("intervals")
+        if isinstance(ivs, list) and len(ivs) >= 2:      # 多周期共振任务
+            print("\n■ %s（多周期共振）" % name)
+            print("   币种：%s" % ", ".join(t.get("symbols") or []))
+            print("   周期：%s   共振窗口：各周期最近 %s 根   收件人：%s" % (
+                " / ".join(str(iv).upper() for iv in ivs), t.get("window") or 3,
+                ", ".join(t.get("to") or [])))
+            print("   上次运行：%s   上次事件：%s" % (
+                st.get("last_run") or "-", st.get("last_events", "-")))
+            for s in st.get("last_status") or []:
+                h = s.get("hits") or {}
+                seg = []
+                for iv in s.get("intervals") or ivs:
+                    one = h.get(iv)
+                    seg.append("%s=%s" % (str(iv).upper(), "-" if not one else (
+                        "零轴下金叉" if one.get("kind") == RESO_GOLDEN else "零轴上死叉")))
+                print("     %-11s %s   共振=%s" % (s["symbol"], "  ".join(seg),
+                                                 s.get("resonance")))
+            continue
         print("\n■ %s" % name)
         print("   币种：%s   周期：%s   收件人：%s" % (
             ", ".join(t.get("symbols") or []), t.get("interval"), ", ".join(t.get("to") or [])))

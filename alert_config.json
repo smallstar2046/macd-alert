@@ -105,6 +105,35 @@
       },
       "to": [],
       "note": "coin：RAYSOL=Raydium（合约代码）/ STRK / DASH / CRV；数据取合约（永续）行情，若合约源不可用会自动回落到等价现货"
+    },
+    {
+      "name": "共振-15M-1H-4H-零轴反转",
+      "symbols": [
+        "BTCUSDT",
+        "AAVEUSDT",
+        "UNIUSDT",
+        "ARBUSDT",
+        "NEARUSDT",
+        "ENAUSDT",
+        "EIGENUSDT",
+        "ONDOUSDT",
+        "RAYSOLUSDT",
+        "STRKUSDT",
+        "DASHUSDT",
+        "CRVUSDT"
+      ],
+      "intervals": [
+        "15m",
+        "1h",
+        "4h"
+      ],
+      "window": 3,
+      "alerts": {
+        "resoBelowGolden": true,
+        "resoAboveDeath": true
+      },
+      "to": [],
+      "note": "三周期（15M/1H/4H）在各自最近 3 根已收盘 K 线内，同时出现「零轴下方金叉」或同时出现「零轴上方死叉」时提醒。行情取现货（RAYSOLUSDT 自动回落现货 RAYUSDT）。"
     }
   ]
 }
