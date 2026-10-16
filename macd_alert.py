@@ -104,6 +104,10 @@ DEFAULT_CONFIG = {
     # capital 填 0 可整体关闭「参考仓位」；riskPct 是「标准档」的风险，档位会按 ADX/RSI 缩放。
     "capital": 100.0,
     "riskPct": 1.0,
+    # 总开关：false 时只扫描不发信（游标照常推进，避免恢复后补发历史信号）
+    "mailEnabled": True,
+    # 提醒规则矩阵：按「币种 × 信号类型」单独开关，见 apply_symbol_rules 的注释
+    "symbolRules": {},
     "tasks": [],
 }
 
@@ -186,6 +190,15 @@ def load_config() -> dict:
     out["capital"] = _fnum(cfg.get("capital"), DEFAULT_CONFIG["capital"])
     out["riskPct"] = _fnum(cfg.get("riskPct"), DEFAULT_CONFIG["riskPct"])
     out["tasks"] = cfg.get("tasks") or []
+    # 提醒规则矩阵：先规整成便于查表的形式，无法识别的项只告警、不阻断
+    out["mailEnabled"] = bool(cfg.get("mailEnabled", True))
+    raw_rules = cfg.get("symbolRules")
+    out["symbolRules"] = raw_rules if isinstance(raw_rules, dict) else {}
+    _rules, _bad = normalize_symbol_rules(raw_rules)
+    out["_symbol_rules"] = _rules
+    out["_symbol_rules_bad"] = _bad
+    if _bad:
+        log.warning("symbolRules 里有 %d 处无法识别，已忽略：%s", len(_bad), "；".join(_bad))
     # 云端部署用：授权码可由环境变量注入（GitHub Secrets），无需写进仓库
     env_pwd = (os.environ.get("MACD_SMTP_PASSWORD") or "").strip()
     if env_pwd:
@@ -726,6 +739,122 @@ RESO_GOLDEN = "resoBelowGolden"   # 零轴下方 DIF 上穿 DEA（交叉时 DIF<
 RESO_DEATH = "resoAboveDeath"     # 零轴上方 DIF 下穿 DEA（交叉时 DIF>0）
 RESO_TYPES = (RESO_GOLDEN, RESO_DEATH)
 DEFAULT_RESO_ALERTS = {RESO_GOLDEN: True, RESO_DEATH: True}
+
+# ---------------------------------------------------------------- 提醒规则矩阵
+# symbolRules：按「币种 × 信号类型」单独覆盖某个币的提醒开关，随时可以只关掉
+# 「某个币的某一类提醒」而不用去改任务本身。写法（alert_config.json 顶层）：
+#   "symbolRules": {
+#       "*":       { "histFlip": false },      // 通配：所有币都关掉柱体变色
+#       "BTCUSDT": { "death": false },         // BTC 不发死叉
+#       "ARBUSDT": { "golden": true }          // ARB 强制打开金叉
+#   }
+# 叠加顺序（后者覆盖前者）：默认值 → 任务 alerts → symbolRules["*"] → symbolRules[币种]
+# 没有写进 symbolRules 的信号一律「跟随任务原设置」。
+RULES_SIGNALS = (
+    ("golden", "金叉"),
+    ("death", "死叉"),
+    ("goldenBelowZero", "零轴下方金叉"),
+    ("deathAboveZero", "零轴上方死叉"),
+    ("histFlip", "柱体变色"),
+    ("zeroCross", "零轴穿越"),
+    ("priceAbove", "上破价位"),
+    ("priceBelow", "下破价位"),
+    (RESO_GOLDEN, "共振·零轴下方金叉"),
+    (RESO_DEATH, "共振·零轴上方死叉"),
+)
+RULES_KEYS = tuple(k for k, _lab in RULES_SIGNALS)
+RULES_LABELS = dict(RULES_SIGNALS)
+RULE_PRICE_KEYS = ("priceAbove", "priceBelow")
+
+
+def normalize_symbol_rules(rules):
+    """把 symbolRules 规整成 {SYMBOL: {key: bool|float}}；同时收集无法识别的项。"""
+    out, bad = {}, []
+    if not isinstance(rules, dict):
+        if rules:
+            bad.append("symbolRules 应为对象")
+        return out, bad
+    for sym, ov in rules.items():
+        key = "*" if str(sym).strip() == "*" else str(sym).strip().upper()
+        if not isinstance(ov, dict):
+            bad.append("%s（值应为对象）" % sym)
+            continue
+        clean = {}
+        for k, v in ov.items():
+            k = str(k).strip()
+            if k not in RULES_KEYS:
+                bad.append("%s.%s（未知信号）" % (key, k))
+                continue
+            if k in RULE_PRICE_KEYS and not isinstance(v, bool):
+                try:
+                    clean[k] = max(0.0, float(v))
+                except (TypeError, ValueError):
+                    bad.append("%s.%s（价位应为数字）" % (key, k))
+                continue
+            clean[k] = bool(v)
+        if clean:
+            out.setdefault(key, {}).update(clean)
+    return out, bad
+
+
+def apply_symbol_rules(alerts: dict, rules: dict, symbol: str) -> dict:
+    """把 symbolRules 叠加到任务级 alerts 上（先通配 "*"，再具体币种）。"""
+    if not rules:
+        return dict(alerts)
+    out = dict(alerts)
+    for scope in ("*", str(symbol or "").strip().upper()):
+        for k, v in (rules.get(scope) or {}).items():
+            if k in RULE_PRICE_KEYS:
+                if v is True:          # true = 照旧用任务里填的价位
+                    out[k] = out.get(k) or 0
+                elif v is False:       # false = 关掉这个价位提醒
+                    out[k] = 0
+                else:
+                    out[k] = _fnum(v, 0)
+            else:
+                out[k] = bool(v)
+    return out
+
+
+def rules_note(base: dict, eff: dict, symbol: str) -> str:
+    """任务级 alerts 与最终生效 alerts 的差异，给人看的短句（无差异返回空串）。"""
+    off, on = [], []
+    for k, _lab in RULES_SIGNALS:
+        if k not in eff and k not in base:
+            continue
+        if k in RULE_PRICE_KEYS:
+            if _fnum(eff.get(k), 0) != _fnum(base.get(k), 0):
+                (on if _fnum(eff.get(k), 0) > 0 else off).append(RULES_LABELS[k])
+            continue
+        if not base.get(k) and eff.get(k):
+            on.append(RULES_LABELS[k])
+        elif base.get(k) and not eff.get(k):
+            off.append(RULES_LABELS[k])
+    seg = []
+    if off:
+        seg.append("关掉 " + "、".join(off))
+    if on:
+        seg.append("打开 " + "、".join(on))
+    return "%s：%s" % (symbol, "；".join(seg)) if seg else ""
+
+
+def rules_overview(cfg: dict) -> list:
+    """给 --status 用：只列出被单独改动过的币种规则。"""
+    rules = cfg.get("_symbol_rules") or {}
+    lines = []
+    for sym in sorted(rules):
+        items = []
+        for k, _lab in RULES_SIGNALS:
+            if k not in rules[sym]:
+                continue
+            v = rules[sym][k]
+            if k in RULE_PRICE_KEYS:
+                items.append("%s=%s" % (RULES_LABELS[k], fmt_price(v) if v else "关"))
+            else:
+                items.append("%s=%s" % (RULES_LABELS[k], "开" if v else "关"))
+        if items:
+            lines.append("%s：%s" % (sym, "，".join(items)))
+    return lines
 # 共振提醒句（用户指定）。想改措辞只改这里。
 HINTS_RESO = {
     RESO_GOLDEN: "结合大周期和日K 看看是不是要出方向了 是不是应该有决定？",
@@ -1083,13 +1212,18 @@ def _run_resonance_task(t: dict, name: str, st: dict, cfg: dict,
     alerts = dict(DEFAULT_RESO_ALERTS)
     alerts.update(t.get("alerts") or {})
     first_run = not st
+    paused = not bool(cfg.get("mailEnabled", True))
     old_sigs = dict(st.get("sigs") or {})
     sigs = dict(old_sigs)
-    collected, statuses, closed_list, failed = [], [], [], []
+    collected, statuses, closed_list, failed, rule_notes = [], [], [], [], []
 
     for sym in t.get("symbols") or []:
+        sym_alerts = apply_symbol_rules(alerts, cfg.get("_symbol_rules") or {}, sym)
+        note = rules_note(alerts, sym_alerts, sym)
+        if note:
+            rule_notes.append(note)
         try:
-            ev, status, closed_ms, sig = resonance_scan(sym, ivs, window, alerts, market)
+            ev, status, closed_ms, sig = resonance_scan(sym, ivs, window, sym_alerts, market)
         except Exception as exc:  # noqa: BLE001
             failed.append("%s: %s" % (sym, exc))
             log.warning("任务[%s] %s 抓取失败：%s", name, sym, exc)
@@ -1101,6 +1235,8 @@ def _run_resonance_task(t: dict, name: str, st: dict, cfg: dict,
             collected.append(ev)
 
     collected.sort(key=lambda e: (e["time_ms"], e["symbol"]))
+    if rule_notes:
+        log.info("任务[%s] 提醒规则生效：%s", name, " ｜ ".join(rule_notes))
     log.info("任务[%s] 共振窗口=最近 %s 根，命中 %d 个事件，成功 %d/%d 币种",
              name, window, len(collected), len(statuses), len(t.get("symbols") or []))
 
@@ -1110,6 +1246,12 @@ def _run_resonance_task(t: dict, name: str, st: dict, cfg: dict,
             log.info("  [DRY] %s %s %s %s", e["symbol"], (e["interval"] or "").upper(),
                      e["label"], e["time"])
         return len(collected), 0, problems, st        # dry-run 不写状态
+
+    if paused:
+        if collected:
+            log.info("任务[%s] 已暂停（mailEnabled=false）：%d 个共振信号不发信",
+                     name, len(collected))
+            collected = []
 
     if first_run and collected:
         log.info("任务[%s] 首次运行：跳过发送（%d 个共振信号仅记为基线）", name, len(collected))
@@ -1137,7 +1279,7 @@ def _run_resonance_task(t: dict, name: str, st: dict, cfg: dict,
             problems.append("%s 发信失败：%s" % (name, exc))
             log.error("任务[%s] 发信失败：%s", name, exc)
 
-    if first_run and cfg.get("notifyOnStart") and sent_ok and to:
+    if first_run and cfg.get("notifyOnStart") and sent_ok and to and not paused:
         body = ("监控已启动（多周期共振）。\n\n任务：%s\n币种：%s\n周期：%s\n"
                 "共振窗口：各周期最近 %s 根已收盘 K 线\n收件人：%s\n启动时间：%s\n" % (
                     name, ", ".join(t.get("symbols") or []),
@@ -1180,6 +1322,10 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
         log.warning("alert_config.json 里没有任何 task，未做任何事")
         return 0
 
+    paused = not bool(cfg.get("mailEnabled", True))
+    if paused:
+        log.warning("配置里 mailEnabled=false：本轮只扫描不发信（游标照常推进）")
+
     total_events, mails, problems = 0, 0, []
     for t in tasks:
         name = t.get("name") or ("%s-%s" % (
@@ -1202,10 +1348,15 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
         market = (t.get("market") or "spot").lower()
         collected, statuses, closed_list, failed = [], [], [], []
 
+        rule_notes = []
         for sym in t.get("symbols") or []:
+            sym_alerts = apply_symbol_rules(alerts, cfg.get("_symbol_rules") or {}, sym)
+            note = rules_note(alerts, sym_alerts, sym)
+            if note:
+                rule_notes.append(note)
             try:
                 ev, status, closed_ms, pst = scan_symbol(
-                    sym, t["interval"], since, alerts, price_states.get(sym) or {}, market)
+                    sym, t["interval"], since, sym_alerts, price_states.get(sym) or {}, market)
             except Exception as exc:  # noqa: BLE001
                 failed.append("%s: %s" % (sym, exc))
                 log.warning("任务[%s] %s 抓取失败：%s", name, sym, exc)
@@ -1216,6 +1367,8 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
             closed_list.append(closed_ms)
 
         collected.sort(key=lambda e: (e["time_ms"], e["symbol"]))
+        if rule_notes:
+            log.info("任务[%s] 提醒规则生效：%s", name, " ｜ ".join(rule_notes))
         total_events += len(collected)
         log.info("任务[%s] 游标 %s 起，区间事件 %d 个，成功 %d/%d 币种",
                  name, bj(since) if since else "(首次)", len(collected),
@@ -1226,6 +1379,12 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
                 log.info("  [DRY] %s %s %s %s 收 %s", e["symbol"], e["interval"],
                          e["label"], e["time"], fmt_price(e["close"]))
             continue
+
+        if paused:
+            if collected:
+                log.info("任务[%s] 已暂停（mailEnabled=false）：%d 个事件不发信",
+                         name, len(collected))
+                collected = []
 
         if first_run and collected:
             # 首次运行只初始化游标，避免把最近一批历史信号全发出来
@@ -1254,7 +1413,7 @@ def run_once(cfg: dict, dry_run: bool = False, force_test: bool = False) -> int:
                 problems.append("%s 发信失败：%s" % (name, exc))
                 log.error("任务[%s] 发信失败：%s", name, exc)
 
-        if first_run and cfg.get("notifyOnStart") and sent_ok and to:
+        if first_run and cfg.get("notifyOnStart") and sent_ok and to and not paused:
             body = "监控已启动。\n\n任务：%s\n币种：%s\n周期：%s\n收件人：%s\n启动时间：%s\n" % (
                 name, ", ".join(t.get("symbols") or []), t["interval"],
                 ", ".join(to), now_bj())
@@ -1339,6 +1498,16 @@ def cmd_status(cfg: dict) -> None:
     print("检查频率：每 %s 分钟" % cfg["pollMinutes"])
     print("参考仓位：总资金 %s USDT，单笔基础风险 %s%%（填 0 关闭）" % (
         cfg.get("capital"), cfg.get("riskPct")))
+    print("邮件总开关：%s" % ("开启" if cfg.get("mailEnabled", True) else "**已暂停（只扫描不发信）**"))
+    _over = rules_overview(cfg)
+    if _over:
+        print("提醒规则（仅列被单独改动过的币种，其余跟随任务原设置）：")
+        for line in _over:
+            print("   · %s" % line)
+    else:
+        print("提醒规则：未做任何单独改动（全部跟随任务原设置）")
+    for _b in (cfg.get("_symbol_rules_bad") or []):
+        print("   ⚠ 无法识别的规则：%s" % _b)
     print("任务数：%d" % len(cfg["tasks"]))
     for t in cfg["tasks"]:
         name = t.get("name")

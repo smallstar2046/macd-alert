@@ -11,6 +11,8 @@
   "notifyOnStart": true,
   "capital": 100,
   "riskPct": 1,
+  "mailEnabled": true,
+  "symbolRules": {},
   "tasks": [
     {
       "name": "BTC-4H",
