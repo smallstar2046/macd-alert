@@ -1,8 +1,8 @@
 {
   "BTC-4H": {
-    "since": 1792209599999,
-    "since_time": "2026-10-17 11:59",
-    "last_run": "2026-10-17 15:52:38",
+    "since": 1792223999999,
+    "since_time": "2026-10-17 15:59",
+    "last_run": "2026-10-17 16:18:59",
     "last_events": 0,
     "last_status": [
       {
@@ -10,19 +10,19 @@
         "interval": "4h",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 81573.58,
-        "dif": -342.51201682,
-        "dea": -323.02161711,
-        "hist": -38.98079941,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 81738.87,
+        "dif": -331.35071612,
+        "dea": -324.68743692,
+        "hist": -13.32655841,
         "above_zero": false,
         "above_dea": false,
-        "price": 81700.11,
-        "live_dif": -334.44268193,
-        "live_dea": -325.30583008,
-        "adx": 47.15,
-        "rsi": 43.35,
-        "atr": 898.57732905
+        "price": 81749.52,
+        "live_dif": -317.98045812,
+        "live_dea": -323.34604116,
+        "adx": 47.82,
+        "rsi": 45.06,
+        "atr": 852.29609126
       }
     ],
     "price": {
@@ -31,9 +31,9 @@
     "failed": []
   },
   "BTC-15M": {
-    "since": 1792223099999,
-    "since_time": "2026-10-17 15:44",
-    "last_run": "2026-10-17 15:52:39",
+    "since": 1792224899999,
+    "since_time": "2026-10-17 16:14",
+    "last_run": "2026-10-17 16:19:00",
     "last_events": 0,
     "last_status": [
       {
@@ -41,19 +41,19 @@
         "interval": "15m",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 15:44",
-        "bar_close": 81704.0,
-        "dif": 20.72287358,
-        "dea": 6.69011567,
-        "hist": 28.06551582,
+        "bar_time": "2026-10-17 16:14",
+        "bar_close": 81730.54,
+        "dif": 32.34572885,
+        "dea": 15.19722007,
+        "hist": 34.29701755,
         "above_zero": true,
         "above_dea": true,
-        "price": 81700.11,
-        "live_dif": 24.69803589,
-        "live_dea": 10.29169971,
-        "adx": 11.41,
-        "rsi": 60.36,
-        "atr": 73.72368824
+        "price": 81749.52,
+        "live_dif": 37.06049252,
+        "live_dea": 19.56987456,
+        "adx": 13.81,
+        "rsi": 62.05,
+        "atr": 70.95164956
       }
     ],
     "price": {
@@ -62,9 +62,9 @@
     "failed": []
   },
   "ALT-4H-零轴下金叉": {
-    "since": 1792209599999,
-    "since_time": "2026-10-17 11:59",
-    "last_run": "2026-10-17 15:52:43",
+    "since": 1792223999999,
+    "since_time": "2026-10-17 15:59",
+    "last_run": "2026-10-17 16:19:07",
     "last_events": 0,
     "last_status": [
       {
@@ -72,133 +72,133 @@
         "interval": "4h",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 156.2,
-        "dif": -1.502446,
-        "dea": -1.99077543,
-        "hist": 0.97665887,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 156.56,
+        "dif": -1.44596038,
+        "dea": -1.88181242,
+        "hist": 0.87170409,
         "above_zero": false,
         "above_dea": true,
-        "price": 156.58,
-        "live_dif": -1.44436494,
-        "live_dea": -1.88149333,
-        "adx": 24.46,
-        "rsi": 45.09,
-        "atr": 4.14831892
+        "price": 156.6,
+        "live_dif": -1.3820362,
+        "live_dea": -1.78185718,
+        "adx": 23.4,
+        "rsi": 45.8,
+        "atr": 3.95915329
       },
       {
         "symbol": "UNIUSDT",
         "interval": "4h",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 7.332,
-        "dif": -0.03262945,
-        "dea": -0.05392256,
-        "hist": 0.04258621,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 7.312,
+        "dif": -0.03137476,
+        "dea": -0.049413,
+        "hist": 0.03607648,
         "above_zero": false,
         "above_dea": true,
-        "price": 7.315,
-        "live_dif": -0.03113544,
-        "live_dea": -0.04936513,
-        "adx": 23.51,
-        "rsi": 48.9,
-        "atr": 0.23613971
+        "price": 7.307,
+        "live_dif": -0.03043304,
+        "live_dea": -0.04561701,
+        "adx": 23.3,
+        "rsi": 48.24,
+        "atr": 0.22598687
       },
       {
         "symbol": "ARBUSDT",
         "interval": "4h",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 0.1898,
-        "dif": 0.00156785,
-        "dea": 0.00098977,
-        "hist": 0.00115616,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 0.1886,
+        "dif": 0.00123358,
+        "dea": 0.00103853,
+        "hist": 0.0003901,
         "above_zero": true,
         "above_dea": true,
-        "price": 0.1891,
-        "live_dif": 0.00127347,
-        "live_dea": 0.00104651,
-        "adx": 16.52,
-        "rsi": 50.09,
-        "atr": 0.0066746
+        "price": 0.1885,
+        "live_dif": 0.00094965,
+        "live_dea": 0.00102076,
+        "adx": 15.8,
+        "rsi": 48.78,
+        "atr": 0.00649785
       },
       {
         "symbol": "NEARUSDT",
         "interval": "4h",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 5.075,
-        "dif": -0.01176747,
-        "dea": -0.02496056,
-        "hist": 0.02638618,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 5.107,
+        "dif": -0.00975008,
+        "dea": -0.02191847,
+        "hist": 0.02433677,
         "above_zero": false,
         "above_dea": true,
-        "price": 5.106,
-        "live_dif": -0.00982985,
-        "live_dea": -0.02193442,
-        "adx": 17.92,
-        "rsi": 49.05,
-        "atr": 0.23137883
+        "price": 5.098,
+        "live_dif": -0.00877634,
+        "live_dea": -0.01929004,
+        "adx": 17.28,
+        "rsi": 50.04,
+        "atr": 0.22106606
       },
       {
         "symbol": "ENAUSDT",
         "interval": "4h",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 0.1991,
-        "dif": -0.00379973,
-        "dea": -0.0047299,
-        "hist": 0.00186035,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 0.1979,
+        "dif": -0.00374389,
+        "dea": -0.0045327,
+        "hist": 0.00157761,
         "above_zero": false,
         "above_dea": true,
-        "price": 0.1983,
-        "live_dif": -0.00371199,
-        "live_dea": -0.00452632,
-        "adx": 27.34,
-        "rsi": 43.24,
-        "atr": 0.00751458
+        "price": 0.1975,
+        "live_dif": -0.00368939,
+        "live_dea": -0.00436404,
+        "adx": 27.05,
+        "rsi": 42.05,
+        "atr": 0.00716354
       },
       {
         "symbol": "EIGENUSDT",
         "interval": "4h",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 0.2759,
-        "dif": 0.00379885,
-        "dea": 0.00090302,
-        "hist": 0.00579166,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 0.27,
+        "dif": 0.00495076,
+        "dea": 0.00171257,
+        "hist": 0.00647639,
         "above_zero": true,
         "above_dea": true,
-        "price": 0.2696,
-        "live_dif": 0.00491886,
-        "live_dea": 0.00170619,
-        "adx": 18.49,
-        "rsi": 67.02,
-        "atr": 0.01172961
+        "price": 0.2676,
+        "live_dif": 0.00560539,
+        "live_dea": 0.00249113,
+        "adx": 19.77,
+        "rsi": 62.5,
+        "atr": 0.01193464
       },
       {
         "symbol": "ONDOUSDT",
         "interval": "4h",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 0.4557,
-        "dif": -0.00471219,
-        "dea": -0.00607798,
-        "hist": 0.00273159,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 0.4547,
+        "dif": -0.00466595,
+        "dea": -0.00579558,
+        "hist": 0.00225925,
         "above_zero": false,
         "above_dea": true,
-        "price": 0.455,
-        "live_dif": -0.00464202,
-        "live_dea": -0.00579079,
-        "adx": 21.71,
-        "rsi": 45.55,
-        "atr": 0.0141712
+        "price": 0.4543,
+        "live_dif": -0.00460846,
+        "live_dea": -0.00555815,
+        "adx": 21.52,
+        "rsi": 45.04,
+        "atr": 0.01352326
       }
     ],
     "price": {
@@ -213,9 +213,9 @@
     "failed": []
   },
   "合约-4H-金叉死叉": {
-    "since": 1792209599999,
-    "since_time": "2026-10-17 11:59",
-    "last_run": "2026-10-17 15:52:46",
+    "since": 1792223999999,
+    "since_time": "2026-10-17 15:59",
+    "last_run": "2026-10-17 16:19:10",
     "last_events": 0,
     "last_status": [
       {
@@ -223,76 +223,76 @@
         "interval": "4h",
         "market": "futures",
         "source": "gate.futures",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 1.8406,
-        "dif": -0.08028264,
-        "dea": -0.0943901,
-        "hist": 0.02821492,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 1.8463,
+        "dif": -0.07557695,
+        "dea": -0.09062747,
+        "hist": 0.03010104,
         "above_zero": false,
         "above_dea": true,
-        "price": 1.849,
-        "live_dif": -0.07536157,
-        "live_dea": -0.0905844,
-        "adx": 30.93,
-        "rsi": 39.87,
-        "atr": 0.07756557
+        "price": 1.846,
+        "live_dif": -0.07105282,
+        "live_dea": -0.08671254,
+        "adx": 30.23,
+        "rsi": 40.51,
+        "atr": 0.07406803
       },
       {
         "symbol": "STRKUSDT",
         "interval": "4h",
         "market": "futures",
         "source": "gate.futures",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 0.07176,
-        "dif": -0.00304794,
-        "dea": -0.00192927,
-        "hist": -0.00223733,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 0.071,
+        "dif": -0.00337243,
+        "dea": -0.00221791,
+        "hist": -0.00230905,
         "above_zero": false,
         "above_dea": false,
-        "price": 0.07083,
-        "live_dif": -0.00338599,
-        "live_dea": -0.00222062,
-        "adx": 18.87,
-        "rsi": 40.01,
-        "atr": 0.00704501
+        "price": 0.07164,
+        "live_dif": -0.00353718,
+        "live_dea": -0.00248176,
+        "adx": 18.51,
+        "rsi": 39.37,
+        "atr": 0.00666537
       },
       {
         "symbol": "DASHUSDT",
         "interval": "4h",
         "market": "futures",
         "source": "gate.futures",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 49.42,
-        "dif": -0.37689662,
-        "dea": -0.53264119,
-        "hist": 0.31148914,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 49.47,
+        "dif": -0.33145855,
+        "dea": -0.49240466,
+        "hist": 0.32189222,
         "above_zero": false,
         "above_dea": true,
-        "price": 49.51,
-        "live_dif": -0.32826767,
-        "live_dea": -0.49176649,
-        "adx": 39.04,
-        "rsi": 48.3,
-        "atr": 1.26467771
+        "price": 49.59,
+        "live_dif": -0.28250897,
+        "live_dea": -0.45042553,
+        "adx": 38.38,
+        "rsi": 48.65,
+        "atr": 1.21791502
       },
       {
         "symbol": "CRVUSDT",
         "interval": "4h",
         "market": "futures",
         "source": "gate.futures",
-        "bar_time": "2026-10-17 11:59",
-        "bar_close": 0.3442,
-        "dif": -0.0005732,
-        "dea": -0.00149607,
-        "hist": 0.00184576,
+        "bar_time": "2026-10-17 15:59",
+        "bar_close": 0.3453,
+        "dif": -0.00067533,
+        "dea": -0.00133192,
+        "hist": 0.00131319,
         "above_zero": false,
         "above_dea": true,
-        "price": 0.3456,
-        "live_dif": -0.0006514,
-        "live_dea": -0.00132714,
-        "adx": 18.16,
-        "rsi": 47.5,
-        "atr": 0.01159565
+        "price": 0.3438,
+        "live_dif": -0.00086731,
+        "live_dea": -0.001239,
+        "adx": 17.58,
+        "rsi": 48.29,
+        "atr": 0.01108881
       }
     ],
     "price": {
@@ -306,7 +306,7 @@
   "合约-1D-金叉死叉": {
     "since": 1792195199999,
     "since_time": "2026-10-17 07:59",
-    "last_run": "2026-10-17 15:52:48",
+    "last_run": "2026-10-17 16:19:13",
     "last_events": 0,
     "last_status": [
       {
@@ -321,9 +321,9 @@
         "hist": -0.16432918,
         "above_zero": true,
         "above_dea": false,
-        "price": 1.849,
-        "live_dif": 0.05762754,
-        "live_dea": 0.14072452,
+        "price": 1.846,
+        "live_dif": 0.05738822,
+        "live_dea": 0.14067666,
         "adx": 46.3,
         "rsi": 45.53,
         "atr": 0.2222884
@@ -340,9 +340,9 @@
         "hist": 0.00152809,
         "above_zero": true,
         "above_dea": true,
-        "price": 0.07083,
-        "live_dif": 0.01114539,
-        "live_dea": 0.01161369,
+        "price": 0.07164,
+        "live_dif": 0.01121,
+        "live_dea": 0.01162661,
         "adx": 53.17,
         "rsi": 54.87,
         "atr": 0.01376885
@@ -359,9 +359,9 @@
         "hist": -2.04059717,
         "above_zero": false,
         "above_dea": false,
-        "price": 49.51,
-        "live_dif": -2.27049741,
-        "live_dea": -1.43418293,
+        "price": 49.59,
+        "live_dif": -2.26411565,
+        "live_dea": -1.43290658,
         "adx": 24.87,
         "rsi": 40.11,
         "atr": 4.16404072
@@ -378,9 +378,9 @@
         "hist": -0.00704387,
         "above_zero": false,
         "above_dea": false,
-        "price": 0.3456,
-        "live_dif": -0.0012487,
-        "live_dea": 0.00205705,
+        "price": 0.3438,
+        "live_dif": -0.00139229,
+        "live_dea": 0.00202833,
         "adx": 20.74,
         "rsi": 49.5,
         "atr": 0.03076814
@@ -395,9 +395,9 @@
     "failed": []
   },
   "共振-15M-1H-4H-零轴反转": {
-    "since": 1792223099999,
-    "since_time": "2026-10-17 15:44",
-    "last_run": "2026-10-17 15:53:08",
+    "since": 1792224899999,
+    "since_time": "2026-10-17 16:14",
+    "last_run": "2026-10-17 16:19:39",
     "last_events": 0,
     "last_status": [
       {
@@ -423,8 +423,8 @@
           },
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 81573.58
+        "bar_time": "2026-10-17 16:14",
+        "price": 81738.87
       },
       {
         "symbol": "AAVEUSDT",
@@ -438,11 +438,19 @@
         "resonance": false,
         "hits": {
           "15m": null,
-          "1h": null,
+          "1h": {
+            "kind": "resoBelowGolden",
+            "time": "2026-10-17 15:59",
+            "dif": -0.46146769,
+            "dea": -0.51010512,
+            "hist": 0.09727485,
+            "adx": 18.56,
+            "rsi": 50.24
+          },
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 156.2
+        "bar_time": "2026-10-17 16:14",
+        "price": 156.56
       },
       {
         "symbol": "UNIUSDT",
@@ -459,8 +467,8 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 7.332
+        "bar_time": "2026-10-17 16:14",
+        "price": 7.312
       },
       {
         "symbol": "ARBUSDT",
@@ -477,8 +485,8 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 0.1898
+        "bar_time": "2026-10-17 16:14",
+        "price": 0.1886
       },
       {
         "symbol": "NEARUSDT",
@@ -492,11 +500,19 @@
         "resonance": false,
         "hits": {
           "15m": null,
-          "1h": null,
+          "1h": {
+            "kind": "resoBelowGolden",
+            "time": "2026-10-17 15:59",
+            "dif": -0.0149274,
+            "dea": -0.0173912,
+            "hist": 0.00492761,
+            "adx": 16.29,
+            "rsi": 51.58
+          },
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 5.075
+        "bar_time": "2026-10-17 16:14",
+        "price": 5.107
       },
       {
         "symbol": "ENAUSDT",
@@ -509,20 +525,12 @@
         "market": "spot",
         "resonance": false,
         "hits": {
-          "15m": {
-            "kind": "resoAboveDeath",
-            "time": "2026-10-17 15:14",
-            "dif": 0.00015396,
-            "dea": 0.00017871,
-            "hist": -4.948e-05,
-            "adx": 20.93,
-            "rsi": 45.4
-          },
+          "15m": null,
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 0.1991
+        "bar_time": "2026-10-17 16:14",
+        "price": 0.1979
       },
       {
         "symbol": "EIGENUSDT",
@@ -539,8 +547,8 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 0.2759
+        "bar_time": "2026-10-17 16:14",
+        "price": 0.27
       },
       {
         "symbol": "ONDOUSDT",
@@ -553,15 +561,7 @@
         "market": "spot",
         "resonance": false,
         "hits": {
-          "15m": {
-            "kind": "resoAboveDeath",
-            "time": "2026-10-17 15:14",
-            "dif": 0.0008279,
-            "dea": 0.00089344,
-            "hist": -0.00013107,
-            "adx": 27.52,
-            "rsi": 48.94
-          },
+          "15m": null,
           "1h": {
             "kind": "resoBelowGolden",
             "time": "2026-10-17 14:59",
@@ -573,97 +573,11 @@
           },
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 0.4557
+        "bar_time": "2026-10-17 16:14",
+        "price": 0.4547
       },
       {
         "symbol": "RAYSOLUSDT",
-        "intervals": [
-          "15m",
-          "1h",
-          "4h"
-        ],
-        "window": 3,
-        "market": "spot",
-        "resonance": false,
-        "hits": {
-          "15m": {
-            "kind": "resoBelowGolden",
-            "time": "2026-10-17 15:29",
-            "dif": -0.00109222,
-            "dea": -0.0011499,
-            "hist": 0.00011537,
-            "adx": 11.79,
-            "rsi": 51.11
-          },
-          "1h": null,
-          "4h": null
-        },
-        "bar_time": "2026-10-17 15:44",
-        "price": 1.8413
-      },
-      {
-        "symbol": "STRKUSDT",
-        "intervals": [
-          "15m",
-          "1h",
-          "4h"
-        ],
-        "window": 3,
-        "market": "spot",
-        "resonance": false,
-        "hits": {
-          "15m": {
-            "kind": "resoBelowGolden",
-            "time": "2026-10-17 15:14",
-            "dif": -0.00043335,
-            "dea": -0.00046773,
-            "hist": 6.874e-05,
-            "adx": 12.34,
-            "rsi": 47.01
-          },
-          "1h": {
-            "kind": "resoBelowGolden",
-            "time": "2026-10-17 12:59",
-            "dif": -0.00236655,
-            "dea": -0.00242375,
-            "hist": 0.00011439,
-            "adx": 19.69,
-            "rsi": 37.4
-          },
-          "4h": null
-        },
-        "bar_time": "2026-10-17 15:44",
-        "price": 0.07176
-      },
-      {
-        "symbol": "DASHUSDT",
-        "intervals": [
-          "15m",
-          "1h",
-          "4h"
-        ],
-        "window": 3,
-        "market": "spot",
-        "resonance": false,
-        "hits": {
-          "15m": {
-            "kind": "resoAboveDeath",
-            "time": "2026-10-17 15:29",
-            "dif": 0.12768801,
-            "dea": 0.12904999,
-            "hist": -0.00272397,
-            "adx": 28.9,
-            "rsi": 56.48
-          },
-          "1h": null,
-          "4h": null
-        },
-        "bar_time": "2026-10-17 15:44",
-        "price": 49.51
-      },
-      {
-        "symbol": "CRVUSDT",
         "intervals": [
           "15m",
           "1h",
@@ -677,8 +591,70 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-17 15:44",
-        "price": 0.3444
+        "bar_time": "2026-10-17 16:14",
+        "price": 1.8486
+      },
+      {
+        "symbol": "STRKUSDT",
+        "intervals": [
+          "15m",
+          "1h",
+          "4h"
+        ],
+        "window": 3,
+        "market": "spot",
+        "resonance": false,
+        "hits": {
+          "15m": null,
+          "1h": null,
+          "4h": null
+        },
+        "bar_time": "2026-10-17 16:14",
+        "price": 0.07104
+      },
+      {
+        "symbol": "DASHUSDT",
+        "intervals": [
+          "15m",
+          "1h",
+          "4h"
+        ],
+        "window": 3,
+        "market": "spot",
+        "resonance": false,
+        "hits": {
+          "15m": null,
+          "1h": null,
+          "4h": null
+        },
+        "bar_time": "2026-10-17 16:14",
+        "price": 49.49
+      },
+      {
+        "symbol": "CRVUSDT",
+        "intervals": [
+          "15m",
+          "1h",
+          "4h"
+        ],
+        "window": 3,
+        "market": "spot",
+        "resonance": false,
+        "hits": {
+          "15m": {
+            "kind": "resoBelowGolden",
+            "time": "2026-10-17 15:59",
+            "dif": -0.00063959,
+            "dea": -0.00066547,
+            "hist": 5.176e-05,
+            "adx": 19.26,
+            "rsi": 46.12
+          },
+          "1h": null,
+          "4h": null
+        },
+        "bar_time": "2026-10-17 16:14",
+        "price": 0.3455
       }
     ],
     "sigs": {
