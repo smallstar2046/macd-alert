@@ -2,7 +2,7 @@
   "BTC-4H": {
     "since": 1792727999999,
     "since_time": "2026-10-23 11:59",
-    "last_run": "2026-10-23 14:32:36",
+    "last_run": "2026-10-23 15:23:51",
     "last_events": 0,
     "last_status": [
       {
@@ -17,9 +17,9 @@
         "hist": -429.3209796,
         "above_zero": false,
         "above_dea": false,
-        "price": 81894.01,
-        "live_dif": -129.05541387,
-        "live_dea": 60.31329354,
+        "price": 81737.88,
+        "live_dif": -141.51022869,
+        "live_dea": 57.82233058,
         "adx": 22.85,
         "rsi": 45.34,
         "atr": 820.82711263
@@ -31,9 +31,9 @@
     "failed": []
   },
   "BTC-15M": {
-    "since": 1792736999999,
-    "since_time": "2026-10-23 14:29",
-    "last_run": "2026-10-23 14:32:40",
+    "since": 1792739699999,
+    "since_time": "2026-10-23 15:14",
+    "last_run": "2026-10-23 15:23:54",
     "last_events": 2,
     "last_status": [
       {
@@ -41,19 +41,19 @@
         "interval": "15m",
         "market": "spot",
         "source": "binance.vision",
-        "bar_time": "2026-10-23 14:29",
-        "bar_close": 81848.31,
-        "dif": 85.90717136,
-        "dea": 82.30658195,
-        "hist": 7.20117883,
+        "bar_time": "2026-10-23 15:14",
+        "bar_close": 81807.31,
+        "dif": 82.00714154,
+        "dea": 84.05198313,
+        "hist": -4.08968318,
         "above_zero": true,
-        "above_dea": true,
-        "price": 81894.01,
-        "live_dif": 88.51027175,
-        "live_dea": 83.54731991,
-        "adx": 16.31,
-        "rsi": 55.95,
-        "atr": 178.59700965
+        "above_dea": false,
+        "price": 81737.87,
+        "live_dif": 70.04696207,
+        "live_dea": 81.25097892,
+        "adx": 16.91,
+        "rsi": 53.52,
+        "atr": 162.27078725
       }
     ],
     "price": {
@@ -64,7 +64,7 @@
   "ALT-4H-零轴下金叉": {
     "since": 1792727999999,
     "since_time": "2026-10-23 11:59",
-    "last_run": "2026-10-23 14:32:46",
+    "last_run": "2026-10-23 15:23:58",
     "last_events": 0,
     "last_status": [
       {
@@ -79,9 +79,9 @@
         "hist": -1.12004315,
         "above_zero": false,
         "above_dea": false,
-        "price": 149.67,
-        "live_dif": -1.36633507,
-        "live_dea": -0.97930469,
+        "price": 149.84,
+        "live_dif": -1.35277381,
+        "live_dea": -0.97659244,
         "adx": 17.25,
         "rsi": 45.14,
         "atr": 3.89366173
@@ -98,9 +98,9 @@
         "hist": -0.08075199,
         "above_zero": false,
         "above_dea": false,
-        "price": 7.23,
-        "live_dif": -0.04809796,
-        "live_dea": -0.02049814,
+        "price": 7.261,
+        "live_dif": -0.04562503,
+        "live_dea": -0.02000355,
         "adx": 17.04,
         "rsi": 46.39,
         "atr": 0.22106354
@@ -117,9 +117,9 @@
         "hist": -0.00213539,
         "above_zero": false,
         "above_dea": false,
-        "price": 0.1825,
-        "live_dif": -0.00209071,
-        "live_dea": -0.00116054,
+        "price": 0.182,
+        "live_dif": -0.00213059,
+        "live_dea": -0.00116852,
         "adx": 16.12,
         "rsi": 47.27,
         "atr": 0.00684643
@@ -136,9 +136,9 @@
         "hist": -0.04258971,
         "above_zero": false,
         "above_dea": false,
-        "price": 4.971,
-        "live_dif": -0.00743242,
-        "live_dea": 0.01150369,
+        "price": 4.954,
+        "live_dif": -0.00878854,
+        "live_dea": 0.01123247,
         "adx": 13.52,
         "rsi": 47.45,
         "atr": 0.18185662
@@ -155,9 +155,9 @@
         "hist": -0.00128753,
         "above_zero": true,
         "above_dea": false,
-        "price": 0.2022,
-        "live_dif": 0.00161369,
-        "live_dea": 0.00215603,
+        "price": 0.2006,
+        "live_dif": 0.00148605,
+        "live_dea": 0.00213051,
         "adx": 25.97,
         "rsi": 50.88,
         "atr": 0.00762196
@@ -174,9 +174,9 @@
         "hist": -0.00327631,
         "above_zero": false,
         "above_dea": false,
-        "price": 0.2231,
-        "live_dif": -0.00560358,
-        "live_dea": -0.00436533,
+        "price": 0.2226,
+        "live_dif": -0.00564347,
+        "live_dea": -0.0043733,
         "adx": 15.29,
         "rsi": 39.77,
         "atr": 0.00835057
@@ -193,9 +193,9 @@
         "hist": -0.00445947,
         "above_zero": false,
         "above_dea": false,
-        "price": 0.4384,
-        "live_dif": -0.00300498,
-        "live_dea": -0.00124674,
+        "price": 0.438,
+        "live_dif": -0.00303689,
+        "live_dea": -0.00125312,
         "adx": 23.1,
         "rsi": 45.22,
         "atr": 0.01130772
@@ -215,7 +215,7 @@
   "合约-4H-金叉死叉": {
     "since": 1792727999999,
     "since_time": "2026-10-23 11:59",
-    "last_run": "2026-10-23 14:32:49",
+    "last_run": "2026-10-23 15:24:01",
     "last_events": 0,
     "last_status": [
       {
@@ -230,9 +230,9 @@
         "hist": -0.02788626,
         "above_zero": false,
         "above_dea": false,
-        "price": 1.8691,
-        "live_dif": -0.01124707,
-        "live_dea": 0.00096825,
+        "price": 1.8624,
+        "live_dif": -0.01178155,
+        "live_dea": 0.00086135,
         "adx": 18.67,
         "rsi": 47.04,
         "atr": 0.06089877
@@ -249,9 +249,9 @@
         "hist": 0.0003385,
         "above_zero": false,
         "above_dea": true,
-        "price": 0.05293,
-        "live_dif": -0.00282325,
-        "live_dea": -0.00296342,
+        "price": 0.0533,
+        "live_dif": -0.00279374,
+        "live_dea": -0.00295752,
         "adx": 19.78,
         "rsi": 36.21,
         "atr": 0.00311197
@@ -268,9 +268,9 @@
         "hist": 0.55849087,
         "above_zero": true,
         "above_dea": true,
-        "price": 54.53,
-        "live_dif": 1.00130296,
-        "live_dea": 0.65121305,
+        "price": 54.24,
+        "live_dif": 0.97816905,
+        "live_dea": 0.64658627,
         "adx": 23.35,
         "rsi": 69.39,
         "atr": 1.67141946
@@ -287,9 +287,9 @@
         "hist": -0.00731604,
         "above_zero": true,
         "above_dea": false,
-        "price": 0.3648,
-        "live_dif": 0.00184601,
-        "live_dea": 0.00550774,
+        "price": 0.365,
+        "live_dif": 0.00186196,
+        "live_dea": 0.00551093,
         "adx": 27.89,
         "rsi": 47.67,
         "atr": 0.01183503
@@ -306,7 +306,7 @@
   "合约-1D-金叉死叉": {
     "since": 1792713599999,
     "since_time": "2026-10-23 07:59",
-    "last_run": "2026-10-23 14:32:52",
+    "last_run": "2026-10-23 15:24:03",
     "last_events": 0,
     "last_status": [
       {
@@ -321,9 +321,9 @@
         "hist": -0.09931044,
         "above_zero": true,
         "above_dea": false,
-        "price": 1.8691,
-        "live_dif": 0.00281756,
-        "live_dea": 0.04806188,
+        "price": 1.8626,
+        "live_dif": 0.00229904,
+        "live_dea": 0.04795818,
         "adx": 34.01,
         "rsi": 45.82,
         "atr": 0.19568705
@@ -340,9 +340,9 @@
         "hist": -0.00863866,
         "above_zero": true,
         "above_dea": false,
-        "price": 0.05293,
-        "live_dif": 0.00167561,
-        "live_dea": 0.00602479,
+        "price": 0.0533,
+        "live_dif": 0.00170512,
+        "live_dea": 0.00603069,
         "adx": 43.96,
         "rsi": 45.52,
         "atr": 0.01150334
@@ -359,9 +359,9 @@
         "hist": 0.40924979,
         "above_zero": false,
         "above_dea": true,
-        "price": 54.53,
-        "live_dif": -1.21004364,
-        "live_dea": -1.6742496,
+        "price": 54.24,
+        "live_dif": -1.23317754,
+        "live_dea": -1.67887638,
         "adx": 23.35,
         "rsi": 50.36,
         "atr": 3.8258079
@@ -378,9 +378,9 @@
         "hist": 0.00464607,
         "above_zero": true,
         "above_dea": true,
-        "price": 0.3648,
-        "live_dif": 0.00489794,
-        "live_dea": 0.00347419,
+        "price": 0.365,
+        "live_dif": 0.00491389,
+        "live_dea": 0.00347738,
         "adx": 20.84,
         "rsi": 50.66,
         "atr": 0.03085899
@@ -395,9 +395,9 @@
     "failed": []
   },
   "共振-15M-1H-4H-零轴反转": {
-    "since": 1792736999999,
-    "since_time": "2026-10-23 14:29",
-    "last_run": "2026-10-23 14:33:16",
+    "since": 1792739699999,
+    "since_time": "2026-10-23 15:14",
+    "last_run": "2026-10-23 15:24:22",
     "last_events": 0,
     "last_status": [
       {
@@ -411,11 +411,19 @@
         "market": "spot",
         "resonance": false,
         "hits": {
-          "15m": null,
+          "15m": {
+            "kind": "resoAboveDeath",
+            "time": "2026-10-23 15:14",
+            "dif": 82.00714154,
+            "dea": 84.05198313,
+            "hist": -4.08968318,
+            "adx": 16.91,
+            "rsi": 53.52
+          },
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 81889.32
       },
       {
@@ -433,7 +441,7 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 149.36
       },
       {
@@ -451,7 +459,7 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 7.177
       },
       {
@@ -465,19 +473,11 @@
         "market": "spot",
         "resonance": false,
         "hits": {
-          "15m": {
-            "kind": "resoAboveDeath",
-            "time": "2026-10-23 13:59",
-            "dif": 0.00077186,
-            "dea": 0.00081054,
-            "hist": -7.737e-05,
-            "adx": 25.63,
-            "rsi": 54.08
-          },
+          "15m": null,
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 0.1853
       },
       {
@@ -495,7 +495,7 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 4.956
       },
       {
@@ -521,7 +521,7 @@
             "rsi": 50.39
           }
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 0.2002
       },
       {
@@ -539,7 +539,7 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 0.222
       },
       {
@@ -557,7 +557,7 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 0.4372
       },
       {
@@ -571,19 +571,11 @@
         "market": "spot",
         "resonance": false,
         "hits": {
-          "15m": {
-            "kind": "resoAboveDeath",
-            "time": "2026-10-23 14:29",
-            "dif": 0.00629629,
-            "dea": 0.00647051,
-            "hist": -0.00034844,
-            "adx": 33.15,
-            "rsi": 54.79
-          },
+          "15m": null,
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 1.8834
       },
       {
@@ -598,18 +590,10 @@
         "resonance": false,
         "hits": {
           "15m": null,
-          "1h": {
-            "kind": "resoBelowGolden",
-            "time": "2026-10-23 11:59",
-            "dif": -0.00095396,
-            "dea": -0.00095635,
-            "hist": 4.78e-06,
-            "adx": 16.62,
-            "rsi": 41.1
-          },
+          "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 0.05328
       },
       {
@@ -627,7 +611,7 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 55.25
       },
       {
@@ -645,7 +629,7 @@
           "1h": null,
           "4h": null
         },
-        "bar_time": "2026-10-23 14:29",
+        "bar_time": "2026-10-23 15:14",
         "price": 0.3675
       }
     ],
